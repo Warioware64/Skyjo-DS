@@ -10,7 +10,7 @@ from architectds import *
 
 
 nitrofs = NitroFS()
-nitrofs.add_nflib_bg_8bit(['resources/introBGs/'], out_dir="introTitle/")
+nitrofs.add_ptexconv(['resources/introBGs/'], out_dir="introTitle/")
 #nitrofs.add_ptexconv_tex4x4(['testPtxe4'], out_dir="texture/test")
 nitrofs.generate_image()
 

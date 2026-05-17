@@ -30,7 +30,7 @@
         {
             "label": "Rebuild SKYJO-DS",
             "dependsOrder": "sequence",
-            "dependsOn": ["Clean", "Build"],
+            "dependsOn": ["Clean SKYJO-DS", "Build SKYJO-DS"],
             "group": "build",
             "problemMatcher": []
         },
