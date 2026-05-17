@@ -1,0 +1,17 @@
+# Python cache files
+__pycache__/
+
+examples/
+# Setuptools
+build/
+dist/
+*.egg-info/
+
+# Vim
+.*swp
+
+# Virtual environments
+env/
+
+# Compile commands files
+compile_commands.json

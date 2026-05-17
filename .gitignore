@@ -44,6 +44,12 @@ build/
 Build/
 build-*/
 
+build.ninja
+.ninja_deps
+.ninja_log
+
+Makefile
+
 # CMake generated files
 CMakeFiles/
 CMakeCache.txt
@@ -67,3 +73,8 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Python virtual environment
+/env/
+
+*.nds

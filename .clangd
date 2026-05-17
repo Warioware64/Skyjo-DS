@@ -1,0 +1,16 @@
+CompileFlags:
+  Remove:
+    - -specs=*
+    - -mthumb
+    - -mcpu=*
+    - -MMD
+    - -MP
+    - -fno-exceptions
+    - -fno-rtti
+  Add:
+    - --target=arm-none-eabi
+    - -D__NDS__
+    - -D__BLOCKSDS__
+    - -DARM9
+    - -I/opt/wonderful/toolchain/gcc-arm-none-eabi/arm-none-eabi/include/c++/16.1.1
+    - -I/opt/wonderful/toolchain/gcc-arm-none-eabi/arm-none-eabi/include/c++/16.1.1/arm-none-eabi

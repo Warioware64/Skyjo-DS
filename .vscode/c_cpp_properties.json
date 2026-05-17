@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "BlocksDS",
+            "includePath": [
+                "${workspaceFolder}/source/**",
+                "${BLOCKSDS}/libs/libnds/include",
+                "${BLOCKSDS}/libs/libc/include",
+                "${WONDERFUL_TOOLCHAIN}/toolchain/gcc-arm-none-eabi/arm-none-eabi/include/c++/16.1.1"
+            ],
+            "defines": [
+                "ARM9",
+                "__NDS__",
+                "__BLOCKS_DS__"
+            ],
+            "compilerPath": "${WONDERFUL_TOOLCHAIN}/toolchain/gcc-arm-none-eabi/bin/arm-none-eabi-g++",
+            "cStandard": "c17",
+            "cppStandard": "c++26",
+            "intelliSenseMode": "gcc-arm"
+        }
+    ],
+    "version": 4
+}

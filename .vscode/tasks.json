@@ -1,0 +1,60 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build SKYJO-DS",
+            "type": "shell",
+            "command": "./make.sh",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "Clean SKYJO-DS",
+            "type": "shell",
+            "command": "./clean.sh",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "Rebuild SKYJO-DS",
+            "dependsOrder": "sequence",
+            "dependsOn": ["Clean", "Build"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Generate compile_commands.json",
+            "type": "shell",
+            "command": "./make.sh",
+            "args": ["--compdb"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Setup Python env (architectds modification)",
+            "type": "shell",
+            "command": "./setup-env.sh",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        }
+    ]
+}
