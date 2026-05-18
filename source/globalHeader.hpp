@@ -6,6 +6,7 @@
 #include <iostream>
 #include <utility>
 #include <array>
+#include <print>
 #include <string>
 #include <exception>
 #include <nds.h>
@@ -57,3 +58,7 @@ constexpr std::array<CardPairs, 15> cardPackage = {{
                                             {CardType::Positive_11, 10},
                                             {CardType::Positive_12, 10}
                                         }};
+
+#ifdef DEBUG_BUILD
+#include "DebugPrint.hpp"
+#endif

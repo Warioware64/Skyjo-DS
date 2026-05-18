@@ -31,7 +31,7 @@ void Process::ProcessInit()
 }
 void Process::ProcessGame()
 {
-    
+    //std::terminate();
 }
 
 

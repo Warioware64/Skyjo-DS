@@ -17,6 +17,21 @@
             }
         },
         {
+            "label": "Build SKYJO-DS debug",
+            "type": "shell",
+            "command": "./make_debug.sh",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
             "label": "Clean SKYJO-DS",
             "type": "shell",
             "command": "./clean.sh",
@@ -28,9 +43,27 @@
             }
         },
         {
+            "label": "Clean SKYJO-DS debug",
+            "type": "shell",
+            "command": "./clean_debug.sh",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
             "label": "Rebuild SKYJO-DS",
             "dependsOrder": "sequence",
             "dependsOn": ["Clean SKYJO-DS", "Build SKYJO-DS"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Rebuild SKYJO-DS debug",
+            "dependsOrder": "sequence",
+            "dependsOn": ["Clean SKYJO-DS debug", "Build SKYJO-DS debug"],
             "group": "build",
             "problemMatcher": []
         },
