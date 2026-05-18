@@ -88,6 +88,52 @@
                 "panel": "shared",
                 "clear": true
             }
+        },
+        {
+            "label": "Run in melonDS",
+            "type": "shell",
+            "command": "../melonDS",
+            "args": ["skyjo-nds.nds"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            }
+        },
+        {
+            "label": "Build & Run SKYJO-DS",
+            "dependsOrder": "sequence",
+            "dependsOn": ["Build SKYJO-DS", "Run in melonDS"],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build & Run SKYJO-DS debug",
+            "dependsOrder": "sequence",
+            "dependsOn": ["Build SKYJO-DS debug", "Run in melonDS"],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Rebuild & Run SKYJO-DS",
+            "dependsOrder": "sequence",
+            "dependsOn": ["Rebuild SKYJO-DS", "Run in melonDS"],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Rebuild & Run SKYJO-DS debug",
+            "dependsOrder": "sequence",
+            "dependsOn": ["Rebuild SKYJO-DS debug", "Run in melonDS"],
+            "group": "test",
+            "problemMatcher": []
         }
     ]
 }

@@ -17,4 +17,4 @@ fi
 source "${VENV_DIR}/bin/activate"
 
 cd "${SCRIPT_DIR}"
-exec python build.py "$@" DEBUG_BUILD=1
+exec python build.py --debug "$@" 

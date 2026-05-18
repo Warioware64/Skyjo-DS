@@ -2,13 +2,7 @@
 #include "globalHeader.hpp"
 
 #ifdef DEBUG_BUILD
-class DebugPrint
-{
-    public:
-        DebugPrint();
-        ~DebugPrint();
-
-        void DebugPrintf(const std::string &txt);
-};
-extern DebugPrint debugprint;
+#define DEBUG_PRINT(txt) nocashMessage(txt)
+#else
+#define DEBUG_PRINT(txt) ((void)0)
 #endif

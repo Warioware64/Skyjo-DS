@@ -1,6 +1,7 @@
 #pragma once
 
 #include "globalHeader.hpp"
+#include "DebugPrint.hpp"
 
 class Intro
 {

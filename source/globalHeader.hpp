@@ -59,6 +59,3 @@ constexpr std::array<CardPairs, 15> cardPackage = {{
                                             {CardType::Positive_12, 10}
                                         }};
 
-#ifdef DEBUG_BUILD
-#include "DebugPrint.hpp"
-#endif

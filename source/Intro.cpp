@@ -29,6 +29,7 @@ void Intro::SCREEN_BOTTOM()
 }
 void Intro::LoadAssetsIntro()
 {
+
     this->matBg[0] = NEA_MaterialCreate();
     this->palBG[0] = NEA_PaletteCreate();
 
@@ -42,6 +43,8 @@ void Intro::LoadAssetsIntro()
     this->matBg[3] = NEA_MaterialCreate();
     this->palBG[3] = NEA_PaletteCreate();
 
+    
+    
     NEA_MaterialTexLoadGRF(this->matBg[0], this->palBG[0],
                          NEA_TEXGEN_TEXCOORD, "introTitle/MainSCREEN_png.grf");
     NEA_MaterialTexLoadGRF(this->matBg[1], this->palBG[1],
@@ -61,6 +64,7 @@ void Intro::LoadAssetsIntro()
     NEA_SpriteSetPos(this->bgSprite[0], 0, 0);
     NEA_SpriteSetPos(this->bgSprite[1], 0, 0);
 
+    DEBUG_PRINT("Intro::LoadAssetsIntro() : Assets loaded");
     //NEA_SpriteSetPriority(this->bgSprite[0], 10);
     //NEA_SpriteSetPriority(this->bgSprite[1], 10);
 }
@@ -129,5 +133,6 @@ void Intro::UnloadAssetsIntro()
 
     NEA_SpriteDelete(this->bgSprite[0]);
     NEA_SpriteDelete(this->bgSprite[1]);
+    DEBUG_PRINT("Intro::UnloadAssetsIntro() : Assets Unloaded");
 }
 Intro intro;

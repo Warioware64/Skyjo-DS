@@ -7,9 +7,12 @@
 #include <exception>
 #include "ErrorHandler.hpp"
 #include "Process.hpp"
+#include "DebugPrint.hpp"
+
 
 int main(int argc, char **argv)
 {
+    DEBUG_PRINT("STARTUP");
     std::set_terminate([]()
     {
         consoleDemoInit();

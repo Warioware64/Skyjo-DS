@@ -8,6 +8,14 @@
 
 from architectds import *
 
+import sys
+
+argv = sys.argv
+
+if '--debug' in argv:
+    defines_=['NEA_MAXMOD', 'DEBUG_BUILD']
+else:
+    defines_=['NEA_MAXMOD']
 
 nitrofs = NitroFS()
 nitrofs.add_ptexconv(['resources/introBGs/'], out_dir="introTitle/")
@@ -17,7 +25,7 @@ nitrofs.generate_image()
 arm9 = Arm9Binary(
     sourcedirs=['source'],
     includedirs=['source'],
-    defines=['NEA_MAXMOD'],
+    defines=defines_,
     libs=['NEA', 'mm9', 'nds9'],
     libdirs=[
         '${BLOCKSDS}/libs/libnds',
