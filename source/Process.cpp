@@ -1,5 +1,7 @@
 #include "Process.hpp"
 #include "DebugPrint.hpp"
+#include "MainMenu.hpp"
+#include "globalHeader.hpp"
 
 
 Process::Process()
@@ -34,10 +36,28 @@ void Process::ProcessInit()
     intro.UnloadAssetsIntro();
     
     DEBUG_PRINT("Exit intro sequence");
+    this->classstates = ClassStates::Init;
+    this->menustates = MenusStates::MainMenu;
+
     
 }
 void Process::ProcessGame()
 {
+    if (this->classstates == ClassStates::Init)
+    {
+        if (this->menustates == MenusStates::MainMenu)
+        {
+            mainmenu.LoadAssetsMainMenu();
+            this->classstates = ClassStates::Playing;
+        }
+    }
+    else if(this->classstates == ClassStates::Playing)
+    {
+        if (this->menustates == MenusStates::MainMenu)
+        {
+            mainmenu.RenderMainMenu();
+        }
+    }
     //std::terminate();
 }
 

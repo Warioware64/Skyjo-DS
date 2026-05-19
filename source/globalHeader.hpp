@@ -16,8 +16,18 @@
 #include <fat.h>
 
 
+enum class ClassStates
+{
+    Init,
+    Playing,
+    Exit
+};
 
-
+enum class MenusStates
+{
+    MainMenu,
+    PartyGame
+};
 enum class CardType : int
 {
     Negative_2 = -2,

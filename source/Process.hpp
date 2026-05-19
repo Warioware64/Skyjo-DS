@@ -8,7 +8,8 @@
 class Process
 {
     private:
-
+        ClassStates classstates;
+        MenusStates menustates;
     public:
         Process();
         ~Process();

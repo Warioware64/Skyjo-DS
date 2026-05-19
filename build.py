@@ -19,6 +19,9 @@ else:
 
 nitrofs = NitroFS()
 nitrofs.add_ptexconv(['resources/introBGs/'], out_dir="introTitle/")
+nitrofs.add_ptexconv(['resources/MainMenu/'], out_dir="MainMenu/")
+nitrofs.add_bmfont_fnt(['resources/MainMenu/font/'], out_dir="MainMenu/font/")
+#nitrofs.add_ptexconv(['resources/MainMenu/font/'], out_dir="MainMenu/font/")
 #nitrofs.add_ptexconv_tex4x4(['testPtxe4'], out_dir="texture/test")
 nitrofs.generate_image()
 
