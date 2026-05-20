@@ -26,8 +26,14 @@ void Process::ProcessInit()
     }
     DEBUG_PRINT("Nitrofiles successful");
 
-    NEA_InitDual3D_DMA();
+    NEA_Init3D();
+    NEA_MainScreenSetOnBottom();
+
+    NEA_SetTexPaletteBank(static_cast<NEA_VRAMBankFlags>(NEA_VRAM_F | NEA_VRAM_G));
     NEA_TextureSystemReset(0, 0, static_cast<NEA_VRAMBankFlags>(NEA_VRAM_AB));
+
+
+    NEA_Hw2DAutoInit();
 
     DEBUG_PRINT("Enter into intro sequence");
 

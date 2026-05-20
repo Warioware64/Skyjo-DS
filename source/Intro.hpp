@@ -14,9 +14,13 @@ class Intro
         bool incrementOrDecrement = false;
         int FrameCounterTrigger = 0;
         int brightness = 16;
-        NEA_Sprite *bgSprite[2];
-        NEA_Material *matBg[4];
-        NEA_Palette *palBG[4];
+
+        // Backgrounds are now hardware 2D BGs (one per engine). The intro's
+        // mid-sequence change of artwork is implemented by reloading the
+        // tile/map/palette from NitroFS at the transition point, instead of
+        // swapping materials on a 3D sprite.
+        NEA_Hw2DBG *bgTop;
+        NEA_Hw2DBG *bgBot;
     public:
         Intro();
         ~Intro();

@@ -18,11 +18,15 @@ else:
     defines_=['NEA_MAXMOD']
 
 nitrofs = NitroFS()
-nitrofs.add_ptexconv(['resources/introBGs/'], out_dir="introTitle/")
-nitrofs.add_ptexconv(['resources/MainMenu/'], out_dir="MainMenu/")
-nitrofs.add_bmfont_fnt(['resources/MainMenu/font/'], out_dir="MainMenu/font/")
-#nitrofs.add_ptexconv(['resources/MainMenu/font/'], out_dir="MainMenu/font/")
-#nitrofs.add_ptexconv_tex4x4(['testPtxe4'], out_dir="texture/test")
+# Hardware 2D backgrounds: grit produces raw .img / .map / .pal files that
+# NEA_Hw2DBGLoad*FAT loads directly. 8bpp tiled mode gives the best VRAM
+# usage for repeating patterns like the hex backgrounds.
+nitrofs.add_grit(['resources/introBGs/'],     out_dir='intro/')
+nitrofs.add_grit(['resources/MainMenu/bg/'],  out_dir='mainmenu/')
+# Rich-text font for the menu stays as a tex4x4 atlas (3D quad text path).
+nitrofs.add_grit(['resources/MainMenu/font/'],      out_dir='mainmenu/font/')
+nitrofs.add_ptexconv(['resources/MainMenu/btns/'],      out_dir='mainmenu/btns/')
+nitrofs.add_bmfont_fnt(['resources/MainMenu/font/'],    out_dir='mainmenu/font/')
 nitrofs.generate_image()
 
 arm9 = Arm9Binary(

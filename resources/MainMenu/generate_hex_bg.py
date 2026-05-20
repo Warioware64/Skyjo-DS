@@ -131,7 +131,8 @@ def main() -> None:
 
     out = composed.convert('RGB').resize((OUT_SIZE, OUT_SIZE), Image.LANCZOS)
     out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            'hex_background.png')
+                            'bg', 'hex_background.png')
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
     out.save(out_path)
     print(f'Wrote {out_path} ({OUT_SIZE}x{OUT_SIZE}, SSAA {SCALE}x)')
 
