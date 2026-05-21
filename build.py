@@ -26,6 +26,7 @@ nitrofs.add_grit(['resources/MainMenu/bg/'],  out_dir='mainmenu/')
 # Rich-text font for the menu stays as a tex4x4 atlas (3D quad text path).
 nitrofs.add_grit(['resources/MainMenu/font/'],      out_dir='mainmenu/font/')
 nitrofs.add_ptexconv(['resources/MainMenu/btns/'],      out_dir='mainmenu/btns/')
+nitrofs.add_ptexconv(['resources/cards/png/'],      out_dir='cards/')
 nitrofs.add_bmfont_fnt(['resources/MainMenu/font/'],    out_dir='mainmenu/font/')
 nitrofs.generate_image()
 

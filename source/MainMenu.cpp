@@ -119,6 +119,76 @@ void MainMenu::LoadAssetsPlaySelectionMenu()
                         this->BackMat[0], NEA_White, 31,
                         this->BackMat[1], NEA_White, 31);
 }
+
+void MainMenu::LoadAssetsOnePlayerPartyStart()
+{
+    this->EmptyMat = NEA_MaterialCreate();
+    this->EmptyMat = NEA_MaterialCreate();
+
+
+    this->NextPlayerMat[0] = NEA_MaterialCreate();
+    this->NextPlayerMat[1] = NEA_MaterialCreate();
+    this->NextPlayerPal[0] = NEA_PaletteCreate();
+    this->NextPlayerPal[1] = NEA_PaletteCreate();
+
+    this->PrevPlayerMat[0] = NEA_MaterialCreate();
+    this->PrevPlayerMat[1] = NEA_MaterialCreate();
+    this->PrevPlayerPal[0] = NEA_PaletteCreate();
+    this->PrevPlayerPal[1] = NEA_PaletteCreate();
+
+    this->BackMat[0] = NEA_MaterialCreate();
+    this->BackMat[1] = NEA_MaterialCreate();
+    this->BackPal[0] = NEA_PaletteCreate();
+    this->BackPal[1] = NEA_PaletteCreate();
+
+    this->StartGameMat[0] = NEA_MaterialCreate();
+    this->StartGameMat[1] = NEA_MaterialCreate();
+    this->StartGamePal[0] = NEA_PaletteCreate();
+    this->StartGamePal[1] = NEA_PaletteCreate();
+
+    NEA_MaterialTexLoadGRF(this->EmptyMat, this->EmptyPal, NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/EmptyPlayerNumberButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->BackMat[0], this->BackPal[0], NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/BackButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->BackMat[1], this->BackPal[1], NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/BackButtonPressed_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->NextPlayerMat[0], this->NextPlayerPal[0], NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/NextPlayerButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->NextPlayerMat[1], this->NextPlayerPal[1], NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/NextPlayerButtonPressed_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->PrevPlayerMat[0], this->PrevPlayerPal[0], NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/PrevPlayerButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->PrevPlayerMat[1], this->PrevPlayerPal[1], NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/PrevPlayerButtonPressed_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->StartGameMat[0], this->StartGamePal[0], NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/StartGameButton_png.grf");
+
+    
+    NEA_MaterialTexLoadGRF(this->StartGameMat[1], this->StartGamePal[1], NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/StartGameButtonPressed_png.grf");
+    
+    this->BackButton = NEA_GUIButtonCreate(5, 160,
+                                            5 + 64, 160 + 32);
+    
+    NEA_GUIButtonConfig(this->BackButton,
+                        this->BackMat[0], NEA_White, 31,
+                        this->BackMat[1], NEA_White, 31);
+
+    this->StartGameButton = NEA_GUIButtonCreate(180, 160,
+                                        180 + 64, 160 + 32);
+    
+    NEA_GUIButtonConfig(this->StartGameButton,
+                        this->StartGameMat[0], NEA_White, 31,
+                        this->StartGameMat[1], NEA_White, 31);
+}
+
 void MainMenu::LoadAssetsMainMenu()
 {
     this->brightness = 16;
@@ -190,6 +260,11 @@ void MainMenu::UnloadAssetsPlaySelectionMenu()
 
 }
 
+void MainMenu::UnloadAssetsOnePlayerPartyStart()
+{
+
+}
+
 void MainMenu::ProcessLogicMainTitle()
 {
     if (this->brightness == 0)
@@ -221,6 +296,17 @@ void MainMenu::ProcessLogicPlaySelectionMenu()
         this->UnloadAssetsPlaySelectionMenu();
         this->LoadAssetsMainSelectionMenu();  
     }
+    else if ( NEA_GUIObjectGetEvent(this->OnePlayerButton) == NEA_Clicked)
+    {
+        this->mainmenustates = MainMenuStates::OnePlayerPartyStart;
+        this->UnloadAssetsPlaySelectionMenu();
+        this->LoadAssetsOnePlayerPartyStart();
+    }
+}
+
+void MainMenu::ProcessLogicOnePlayerPartyStart()
+{
+
 }
 
 void MainMenu::RenderMainMenu()
@@ -255,6 +341,13 @@ void MainMenu::RenderMainMenu()
             {
                 this->ProcessLogicPlaySelectionMenu();
                 break;
+            }
+
+            case MainMenuStates::OnePlayerPartyStart:
+            {
+                this->ProcessLogicOnePlayerPartyStart();
+                break;
+
             }
 
         }

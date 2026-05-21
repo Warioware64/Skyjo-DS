@@ -18,7 +18,7 @@ void Process::ProcessInit()
     irqEnable(IRQ_HBLANK);
     irqSet(IRQ_VBLANK, NEA_VBLFunc);
     irqSet(IRQ_HBLANK, NEA_HBLFunc);
-
+    
     if (!nitroFSInit(NULL))
     {
         error.errorReason.assign("NitroFile filesystem failed!");

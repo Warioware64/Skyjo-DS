@@ -7,7 +7,8 @@ enum class MainMenuStates
 {
     MainTitle,
     MainSelectionMenu,
-    PlaySelectionMenu
+    PlaySelectionMenu,
+    OnePlayerPartyStart
 };
 
 class MainMenu
@@ -19,13 +20,16 @@ class MainMenu
 
         void LoadAssetsMainSelectionMenu();
         void LoadAssetsPlaySelectionMenu();
+        void LoadAssetsOnePlayerPartyStart();
 
         void UnloadAssetsMainSelectionMenu();
         void UnloadAssetsPlaySelectionMenu();
+        void UnloadAssetsOnePlayerPartyStart();
 
         void ProcessLogicMainTitle();
         void ProcessLogicMainSelectionMenu();
         void ProcessLogicPlaySelectionMenu();
+        void ProcessLogicOnePlayerPartyStart();
         // Hex background as a hardware 2D BG on each engine instead of a
         // 3D sprite. Drawing order is now decided by BG-layer priority, so
         // the rich-text 3D quads naturally render above without us having
@@ -65,6 +69,31 @@ class MainMenu
         NEA_GUIObj *BackButton;
 
 
+        // OnePlayerPartyStart
+        NEA_Material *EmptyMat;
+        NEA_Palette *EmptyPal;
+
+        NEA_GUIObj *EmptyNumberCPUButton;
+        NEA_GUIObj *EmptyLevelCPUButton;
+
+        NEA_Material *NextPlayerMat[2];
+        NEA_Palette *NextPlayerPal[2];
+
+        NEA_GUIObj *NextPlayerNumberCPUButton;
+        NEA_GUIObj *NextPlayerLevelCPUButton;
+
+
+        NEA_Material *PrevPlayerMat[2];
+        NEA_Palette *PrevPlayerPal[2];
+
+        NEA_GUIObj *PrevPlayerNumberCPUButton;
+        NEA_GUIObj *PrevPlayerLevelCPUButton;
+
+        NEA_Material *StartGameMat[2];
+        NEA_Palette *StartGamePal[2];
+
+        NEA_GUIObj *StartGameButton;
+        
 
         MainMenuStates mainmenustates = MainMenuStates::MainTitle;
         MainMenuStates OLDmainmenustates;
