@@ -19,10 +19,6 @@ import math
 import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-OUT_W, OUT_H = 128, 32
-SCALE = 4
-W, H = OUT_W * SCALE, OUT_H * SCALE
-
 # Skyjo card-derived button palette. Pick whichever matches the menu action.
 COLORS: dict[str, tuple[int, int, int]] = {
     'teal':   ( 38, 145, 110),
@@ -35,9 +31,10 @@ COLORS: dict[str, tuple[int, int, int]] = {
 
 EDGE_COLOR = (28, 24, 26)
 
-# End-cap slope length. H/2 gives 45-deg caps (chunky button look). Use
-# H/(2*sqrt(3)) ≈ 0.289*H for true 60-deg hex angles (subtler, more "hex").
-END_CUT = int(H * 0.5)
+# End-cap slope as a fraction of height. 0.5 gives 45-deg caps (chunky button
+# look). Use 1/(2*sqrt(3)) ≈ 0.289 for true 60-deg hex angles (subtler, more
+# "hex"). Kept as a ratio so the caps stay proportional at any output size.
+END_CUT_RATIO = 0.5
 
 
 def lerp_rgb(a, b, t):
@@ -90,7 +87,15 @@ def load_font(size: int):
     return ImageFont.load_default()
 
 
-def render_button(label: str, base_color, pressed: bool = False) -> Image.Image:
+def render_button(label: str, base_color, out_w: int = 128, out_h: int = 32,
+                  scale: int = 4, pressed: bool = False,
+                  font_size: int = 12) -> Image.Image:
+    # Supersample at the *same aspect ratio* as the requested output, so the
+    # final downsample is a clean shrink with no horizontal/vertical squash.
+    SCALE = scale
+    W, H = out_w * SCALE, out_h * SCALE
+    END_CUT = int(H * END_CUT_RATIO)
+
     img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
 
     inset = 2 * SCALE
@@ -148,7 +153,7 @@ def render_button(label: str, base_color, pressed: bool = False) -> Image.Image:
 
     # 5) Centered label, with a subtle drop shadow underneath the text.
     if label:
-        font = load_font(int(16 * SCALE))
+        font = load_font(int(int(font_size) * SCALE))
         text_layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
         td = ImageDraw.Draw(text_layer)
         bbox = td.textbbox((0, 0), label, font=font)
@@ -162,17 +167,44 @@ def render_button(label: str, base_color, pressed: bool = False) -> Image.Image:
     return img
 
 
+def rgb_tuple(s: str) -> tuple[int, int, int]:
+    """argparse converter: '(20, 21, 24)' or '20,21,24' -> (20, 21, 24)."""
+    parts = [p for p in s.strip().strip('()[] ').split(',') if p.strip()]
+    try:
+        vals = tuple(int(p) for p in parts)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'expected integers, got {s!r}')
+    if len(vals) != 3:
+        raise argparse.ArgumentTypeError(
+            f'expected 3 ints like "(38,145,110)", got {s!r}')
+    return vals
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description='Generate a Skyjo hex button')
     parser.add_argument('--label', default='PLAY')
     parser.add_argument('--color', default='teal', choices=list(COLORS.keys()))
+    parser.add_argument('--color_tuple', default=None, type=rgb_tuple)
     parser.add_argument('--pressed', action='store_true')
     parser.add_argument('--output', default=None,
                         help='Output PNG path (default: hex_button_<color>[_pressed].png)')
+    parser.add_argument('--font_size', type=int, default=12)
+    parser.add_argument('--out_w', type=int, default=128)
+    parser.add_argument('--out_h', type=int, default=32)
+    parser.add_argument('--scale', type=int, default=4)
+
     args = parser.parse_args()
 
-    big = render_button(args.label, COLORS[args.color], pressed=args.pressed)
-    out = big.resize((OUT_W, OUT_H), Image.LANCZOS)
+    if args.color_tuple is None:
+        color_select = COLORS[args.color]
+    else:
+        color_select = args.color_tuple
+    big = render_button(
+        args.label, color_select,
+        out_w=args.out_w, out_h=args.out_h, scale=args.scale,
+        pressed=args.pressed, font_size=args.font_size,
+    )
+    out = big.resize((args.out_w, args.out_h), Image.LANCZOS)
 
     if args.output:
         out_path = args.output
@@ -183,7 +215,7 @@ def main() -> None:
             f'hex_button_{args.color}{suffix}.png',
         )
     out.save(out_path)
-    print(f'Wrote {out_path} ({OUT_W}x{OUT_H}, SSAA {SCALE}x)')
+    print(f'Wrote {out_path} ({args.out_w}x{args.out_h}, SSAA {args.scale}x)')
 
 
 if __name__ == '__main__':

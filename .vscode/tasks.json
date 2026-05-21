@@ -102,6 +102,17 @@
             }
         },
         {
+            "label": "Generate hexButtons",
+            "type": "shell",
+            "command": "cd ./resources/MainMenu && ./buttonBash.sh",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            }
+        },
+        {
             "label": "Build & Run SKYJO-DS",
             "dependsOrder": "sequence",
             "dependsOn": ["Build SKYJO-DS", "Run in melonDS"],
