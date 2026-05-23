@@ -11,10 +11,16 @@ class MainMenu
 {
     //friend class Process;
     private:
+        enum class FadePhase { None, FadingOut, FadingIn };
+
         void SCREEN_TOP();
         void SCREEN_BOTTOM();
 
         void ProcessLogicMainTitle();
+        // Begin a white-fade transition to the next menu. The current menu's
+        // Unload + the next menu's Load are deferred until the fade apex so
+        // the asset swap is hidden behind a fully white screen.
+        void StartTransitionTo(MainMenuStates next);
         // Hex background as a hardware 2D BG on each engine instead of a
         // 3D sprite. Drawing order is now decided by BG-layer priority, so
         // the rich-text 3D quads naturally render above without us having
@@ -38,7 +44,12 @@ class MainMenu
         bool canTouchDetect = false;
         int frameTrigger = 0;
         int brightness = 16;
-        bool frameDoCount;
+        // Drives the brightness fade. Initial boot is FadingIn at the slow
+        // intro speed; menu-to-menu switches use a quicker speed via
+        // fadeStepInterval. pendingNextState is consumed at the fade apex.
+        FadePhase fadePhase = FadePhase::FadingIn;
+        int fadeStepInterval = 5;
+        std::optional<MainMenuStates> pendingNextState;
 
     public:
         MainMenu();

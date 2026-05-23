@@ -50,7 +50,9 @@ void MainMenu::LoadAssetsMainMenu()
 {
     this->brightness = 16;
     this->frameTrigger = 0;
-    this->frameDoCount = true;
+    this->fadePhase = FadePhase::FadingIn;
+    this->fadeStepInterval = 5;
+    this->pendingNextState.reset();
 
     // Rich-text font (3D quad path) for the menu labels.
     NEA_RichTextResetSystem();
@@ -82,14 +84,21 @@ void MainMenu::LoadAssetsMainMenu()
 
 void MainMenu::ProcessLogicMainTitle()
 {
-    if (this->brightness == 0)
+    if (this->keys & KEY_TOUCH)
     {
-        if (this->keys & KEY_TOUCH)
-        {
-            this->mainmenustates = MainMenuStates::MainSelectionMenu;
-            this->mainSelec.LoadAssetsMainSelectionMenu();
-        }
+        this->StartTransitionTo(MainMenuStates::MainSelectionMenu);
     }
+}
+
+void MainMenu::StartTransitionTo(MainMenuStates next)
+{
+    // Defer the actual asset swap to the fade apex (when brightness == 16,
+    // i.e. fully white). Step interval 2 is quicker than the 5-frame step
+    // used by the intro / initial boot fade.
+    this->pendingNextState = next;
+    this->fadePhase = FadePhase::FadingOut;
+    this->fadeStepInterval = 2;
+    this->frameTrigger = 0;
 }
 
 void MainMenu::RenderMainMenu()
@@ -107,82 +116,96 @@ void MainMenu::RenderMainMenu()
         this->keys = keysDown();
 
 
-        switch (this->mainmenustates){
-            case MainMenuStates::MainTitle:
-            {
-                this->ProcessLogicMainTitle();
-                break;
-            }
-
-            case MainMenuStates::MainSelectionMenu:
-            {
-                if (auto next = this->mainSelec.ProcessLogicMainSelectionMenu())
+        // Only run menu logic when no fade is in progress — clicks during a
+        // transition would either be lost (assets are mid-swap) or queue up
+        // a second transition before the first one finishes.
+        if (this->fadePhase == FadePhase::None)
+        {
+            switch (this->mainmenustates){
+                case MainMenuStates::MainTitle:
                 {
-                    this->mainSelec.UnloadAssetsMainSelectionMenu();
-                    this->mainmenustates = *next;
-                    switch (*next)
-                    {
-                        case MainMenuStates::PlaySelectionMenu:
-                            this->playSelec.LoadAssetsPlaySelectionMenu(); break;
-                        case MainMenuStates::OnePlayerPartyStart:
-                            this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
-                        case MainMenuStates::MainSelectionMenu:
-                            this->mainSelec.LoadAssetsMainSelectionMenu(); break;
-                        default: break;
-                    }
+                    this->ProcessLogicMainTitle();
+                    break;
                 }
-                break;
-            }
 
-            case MainMenuStates::PlaySelectionMenu:
-            {
-                if (auto next = this->playSelec.ProcessLogicPlaySelectionMenu())
+                case MainMenuStates::MainSelectionMenu:
                 {
-                    this->playSelec.UnloadAssetsPlaySelectionMenu();
-                    this->mainmenustates = *next;
-                    switch (*next)
-                    {
-                        case MainMenuStates::MainSelectionMenu:
-                            this->mainSelec.LoadAssetsMainSelectionMenu(); break;
-                        case MainMenuStates::OnePlayerPartyStart:
-                            this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
-                        case MainMenuStates::PlaySelectionMenu:
-                            this->playSelec.LoadAssetsPlaySelectionMenu(); break;
-                        default: break;
-                    }
+                    if (auto next = this->mainSelec.ProcessLogicMainSelectionMenu())
+                        this->StartTransitionTo(*next);
+                    break;
                 }
-                break;
-            }
 
-            case MainMenuStates::OnePlayerPartyStart:
-            {
-                if (auto next = this->onePlayerParty.ProcessLogicOnePlayerPartyStart())
+                case MainMenuStates::PlaySelectionMenu:
                 {
-                    this->onePlayerParty.UnloadAssetsOnePlayerPartyStart();
-                    this->mainmenustates = *next;
-                    switch (*next)
-                    {
-                        case MainMenuStates::MainSelectionMenu:
-                            this->mainSelec.LoadAssetsMainSelectionMenu(); break;
-                        case MainMenuStates::PlaySelectionMenu:
-                            this->playSelec.LoadAssetsPlaySelectionMenu(); break;
-                        case MainMenuStates::OnePlayerPartyStart:
-                            this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
-                        default: break;
-                    }
+                    if (auto next = this->playSelec.ProcessLogicPlaySelectionMenu())
+                        this->StartTransitionTo(*next);
+                    break;
                 }
-                break;
 
+                case MainMenuStates::OnePlayerPartyStart:
+                {
+                    if (auto next = this->onePlayerParty.ProcessLogicOnePlayerPartyStart())
+                        this->StartTransitionTo(*next);
+                    break;
+                }
             }
-
         }
 
-        if (this->frameTrigger == 5)
+        // Fade tick. fadeStepInterval is 5 for the initial boot fade-in and
+        // 2 for menu-to-menu transitions, giving menu switches a quicker
+        // white fade than the intro / first MainMenu fade.
+        if (this->fadePhase != FadePhase::None)
         {
-            this->frameTrigger = 0;
-            this->brightness--;
-            if (this->brightness == 0)
-                this->frameDoCount = false;
+            this->frameTrigger++;
+            if (this->frameTrigger >= this->fadeStepInterval)
+            {
+                this->frameTrigger = 0;
+                if (this->fadePhase == FadePhase::FadingOut)
+                {
+                    this->brightness++;
+                    if (this->brightness >= 16)
+                    {
+                        this->brightness = 16;
+                        // Apex of the fade: screen is fully white, swap
+                        // assets out of sight.
+                        switch (this->mainmenustates)
+                        {
+                            case MainMenuStates::MainSelectionMenu:
+                                this->mainSelec.UnloadAssetsMainSelectionMenu(); break;
+                            case MainMenuStates::PlaySelectionMenu:
+                                this->playSelec.UnloadAssetsPlaySelectionMenu(); break;
+                            case MainMenuStates::OnePlayerPartyStart:
+                                this->onePlayerParty.UnloadAssetsOnePlayerPartyStart(); break;
+                            default: break;
+                        }
+                        if (this->pendingNextState)
+                        {
+                            this->mainmenustates = *this->pendingNextState;
+                            this->pendingNextState.reset();
+                        }
+                        switch (this->mainmenustates)
+                        {
+                            case MainMenuStates::MainSelectionMenu:
+                                this->mainSelec.LoadAssetsMainSelectionMenu(); break;
+                            case MainMenuStates::PlaySelectionMenu:
+                                this->playSelec.LoadAssetsPlaySelectionMenu(); break;
+                            case MainMenuStates::OnePlayerPartyStart:
+                                this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
+                            default: break;
+                        }
+                        this->fadePhase = FadePhase::FadingIn;
+                    }
+                }
+                else // FadingIn
+                {
+                    this->brightness--;
+                    if (this->brightness <= 0)
+                    {
+                        this->brightness = 0;
+                        this->fadePhase = FadePhase::None;
+                    }
+                }
+            }
         }
 
         setBrightness(3, this->brightness);
@@ -199,8 +222,6 @@ void MainMenu::RenderMainMenu()
             this->triggerCanTouchDetect = true;
             this->frameTouchDetect = 0;
         }
-        if (this->frameDoCount)
-            this->frameTrigger++;
 
         if (this->triggerCanTouchDetect)
         {
