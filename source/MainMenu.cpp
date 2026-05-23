@@ -8,8 +8,9 @@ MainMenu::MainMenu()
 
 MainMenu::~MainMenu()
 {
-    
+
 }
+
 void MainMenu::SCREEN_TOP()
 {
     NEA_2DViewInit();
@@ -31,6 +32,10 @@ void MainMenu::SCREEN_TOP()
     else {
         NEA_GUIDraw();
     }
+    if (this->mainmenustates == MainMenuStates::OnePlayerPartyStart)
+    {
+        NEA_RichTextRender3D(0, "Touch screen!", 70, 70);
+    }
 
 }
 
@@ -39,154 +44,6 @@ void MainMenu::SCREEN_BOTTOM()
     NEA_2DViewInit();
     NEA_ClearColorSet(NEA_White, 0, 63);
     // Hardware 2D BG renders itself; nothing to submit here yet.
-}
-
-void MainMenu::LoadAssetsMainSelectionMenu()
-{
-    // Materials/palettes are created here and destroyed in the matching
-    // UnloadAssetsMainSelectionMenu — keep Create/Delete paired per screen.
-    this->PlayMat[0] = NEA_MaterialCreate();
-    this->PlayMat[1] = NEA_MaterialCreate();
-    this->PlayPal[0] = NEA_PaletteCreate();
-    this->PlayPal[1] = NEA_PaletteCreate();
-
-    NEA_MaterialTexLoadGRF(this->PlayMat[0], this->PlayPal[0], NEA_TEXGEN_TEXCOORD, "mainmenu/btns/playButton_png.grf");
-    NEA_MaterialTexLoadGRF(this->PlayMat[1], this->PlayPal[1], NEA_TEXGEN_TEXCOORD, "mainmenu/btns/playButtonPressed_png.grf");
-
-    this->PlayButton = NEA_GUIButtonCreate(60, 50,
-                                            60 + 128, 50 + 32);
-    NEA_GUIButtonConfig(this->PlayButton,
-                        this->PlayMat[0], NEA_White, 31,
-                        this->PlayMat[1], NEA_White, 31);
-}
-
-void MainMenu::LoadAssetsPlaySelectionMenu()
-{
-    // Materials/palettes are created here and destroyed in the matching
-    // UnloadAssetsPlaySelectionMenu — keep Create/Delete paired per screen.
-    this->OnePlayerMat[0] = NEA_MaterialCreate();
-    this->OnePlayerMat[1] = NEA_MaterialCreate();
-    this->OnePlayerPal[0] = NEA_PaletteCreate();
-    this->OnePlayerPal[1] = NEA_PaletteCreate();
-
-    this->MultiplayerMat[0] = NEA_MaterialCreate();
-    this->MultiplayerMat[1] = NEA_MaterialCreate();
-    this->MultiplayerPal[0] = NEA_PaletteCreate();
-    this->MultiplayerPal[1] = NEA_PaletteCreate();
-
-    this->BackMat[0] = NEA_MaterialCreate();
-    this->BackMat[1] = NEA_MaterialCreate();
-    this->BackPal[0] = NEA_PaletteCreate();
-    this->BackPal[1] = NEA_PaletteCreate();
-
-    NEA_MaterialTexLoadGRF(this->OnePlayerMat[0], this->OnePlayerPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/OnePlayerButton_png.grf");
-                        
-    NEA_MaterialTexLoadGRF(this->OnePlayerMat[1], this->OnePlayerPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/OnePlayerButtonPressed_png.grf");
-    
-    NEA_MaterialTexLoadGRF(this->MultiplayerMat[0], this->MultiplayerPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/MultiplayerButton_png.grf");
-
-    NEA_MaterialTexLoadGRF(this->MultiplayerMat[1], this->MultiplayerPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/MultiplayerButtonPressed_png.grf");
-
-
-    NEA_MaterialTexLoadGRF(this->BackMat[0], this->BackPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButton_png.grf");
-
-    NEA_MaterialTexLoadGRF(this->BackMat[1], this->BackPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButtonPressed_png.grf");
-
-
-    this->OnePlayerButton = NEA_GUIButtonCreate(60, 50,
-                                            60 + 128, 50 + 32);
-    NEA_GUIButtonConfig(this->OnePlayerButton,
-                        this->OnePlayerMat[0], NEA_White, 31,
-                        this->OnePlayerMat[1], NEA_White, 31);
-
-    this->MultiplayerButton = NEA_GUIButtonCreate(60, 100,
-                                            60 + 128, 100 + 32);
-    
-    NEA_GUIButtonConfig(this->MultiplayerButton,
-                        this->MultiplayerMat[0], NEA_White, 31,
-                        this->MultiplayerMat[1], NEA_White, 31);
-
-    this->BackButton = NEA_GUIButtonCreate(5, 160,
-                                            5 + 64, 160 + 32);
-    
-    NEA_GUIButtonConfig(this->BackButton,
-                        this->BackMat[0], NEA_White, 31,
-                        this->BackMat[1], NEA_White, 31);
-}
-
-void MainMenu::LoadAssetsOnePlayerPartyStart()
-{
-    this->EmptyMat = NEA_MaterialCreate();
-    this->EmptyMat = NEA_MaterialCreate();
-
-
-    this->NextPlayerMat[0] = NEA_MaterialCreate();
-    this->NextPlayerMat[1] = NEA_MaterialCreate();
-    this->NextPlayerPal[0] = NEA_PaletteCreate();
-    this->NextPlayerPal[1] = NEA_PaletteCreate();
-
-    this->PrevPlayerMat[0] = NEA_MaterialCreate();
-    this->PrevPlayerMat[1] = NEA_MaterialCreate();
-    this->PrevPlayerPal[0] = NEA_PaletteCreate();
-    this->PrevPlayerPal[1] = NEA_PaletteCreate();
-
-    this->BackMat[0] = NEA_MaterialCreate();
-    this->BackMat[1] = NEA_MaterialCreate();
-    this->BackPal[0] = NEA_PaletteCreate();
-    this->BackPal[1] = NEA_PaletteCreate();
-
-    this->StartGameMat[0] = NEA_MaterialCreate();
-    this->StartGameMat[1] = NEA_MaterialCreate();
-    this->StartGamePal[0] = NEA_PaletteCreate();
-    this->StartGamePal[1] = NEA_PaletteCreate();
-
-    NEA_MaterialTexLoadGRF(this->EmptyMat, this->EmptyPal, NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/EmptyPlayerNumberButton_png.grf");
-
-    NEA_MaterialTexLoadGRF(this->BackMat[0], this->BackPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButton_png.grf");
-
-    NEA_MaterialTexLoadGRF(this->BackMat[1], this->BackPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButtonPressed_png.grf");
-
-    NEA_MaterialTexLoadGRF(this->NextPlayerMat[0], this->NextPlayerPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/NextPlayerButton_png.grf");
-
-    NEA_MaterialTexLoadGRF(this->NextPlayerMat[1], this->NextPlayerPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/NextPlayerButtonPressed_png.grf");
-
-    NEA_MaterialTexLoadGRF(this->PrevPlayerMat[0], this->PrevPlayerPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/PrevPlayerButton_png.grf");
-
-    NEA_MaterialTexLoadGRF(this->PrevPlayerMat[1], this->PrevPlayerPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/PrevPlayerButtonPressed_png.grf");
-
-    NEA_MaterialTexLoadGRF(this->StartGameMat[0], this->StartGamePal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/StartGameButton_png.grf");
-
-    
-    NEA_MaterialTexLoadGRF(this->StartGameMat[1], this->StartGamePal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/StartGameButtonPressed_png.grf");
-    
-    this->BackButton = NEA_GUIButtonCreate(5, 160,
-                                            5 + 64, 160 + 32);
-    
-    NEA_GUIButtonConfig(this->BackButton,
-                        this->BackMat[0], NEA_White, 31,
-                        this->BackMat[1], NEA_White, 31);
-
-    this->StartGameButton = NEA_GUIButtonCreate(180, 160,
-                                        180 + 64, 160 + 32);
-    
-    NEA_GUIButtonConfig(this->StartGameButton,
-                        this->StartGameMat[0], NEA_White, 31,
-                        this->StartGameMat[1], NEA_White, 31);
 }
 
 void MainMenu::LoadAssetsMainMenu()
@@ -218,51 +75,9 @@ void MainMenu::LoadAssetsMainMenu()
 
     NEA_Hw2DBGSetVisible(this->hexBGbot, true);
 
-    // Per-screen materials/palettes are created in their own LoadAssets*
-    // functions and freed in the matching UnloadAssets* — creating them
+    // Per-screen materials/palettes are created in each sub-menu's own
+    // LoadAssets* and freed in the matching UnloadAssets* — creating them
     // here once would leave dangling handles after the first Unload.
-}
-
-void MainMenu::UnloadAssetsMainSelectionMenu()
-{
-    NEA_GUIDeleteObject(this->PlayButton);
-
-    NEA_MaterialDelete(this->PlayMat[0]);
-    NEA_MaterialDelete(this->PlayMat[1]);
-
-    NEA_PaletteDelete(this->PlayPal[0]);
-    NEA_PaletteDelete(this->PlayPal[1]);
-}
-
-void MainMenu::UnloadAssetsPlaySelectionMenu()
-{
-    NEA_GUIDeleteObject(this->OnePlayerButton);
-    NEA_GUIDeleteObject(this->MultiplayerButton);
-    NEA_GUIDeleteObject(this->BackButton);
-
-    NEA_MaterialDelete(this->OnePlayerMat[0]);
-    NEA_MaterialDelete(this->OnePlayerMat[1]);
-
-    NEA_MaterialDelete(this->MultiplayerMat[0]);
-    NEA_MaterialDelete(this->MultiplayerMat[1]);
-
-    NEA_MaterialDelete(this->BackMat[0]);
-    NEA_MaterialDelete(this->BackMat[1]);
-
-    NEA_PaletteDelete(this->OnePlayerPal[0]);
-    NEA_PaletteDelete(this->OnePlayerPal[1]);
-    
-    NEA_PaletteDelete(this->MultiplayerPal[0]);
-    NEA_PaletteDelete(this->MultiplayerPal[1]);
-
-    NEA_PaletteDelete(this->BackPal[0]);
-    NEA_PaletteDelete(this->BackPal[1]);
-
-}
-
-void MainMenu::UnloadAssetsOnePlayerPartyStart()
-{
-
 }
 
 void MainMenu::ProcessLogicMainTitle()
@@ -272,41 +87,9 @@ void MainMenu::ProcessLogicMainTitle()
         if (this->keys & KEY_TOUCH)
         {
             this->mainmenustates = MainMenuStates::MainSelectionMenu;
-            this->LoadAssetsMainSelectionMenu();
-        }        
+            this->mainSelec.LoadAssetsMainSelectionMenu();
+        }
     }
-}
-
-void MainMenu::ProcessLogicMainSelectionMenu()
-{
-    if ( NEA_GUIObjectGetEvent(this->PlayButton) == NEA_Clicked)
-    {
-        this->mainmenustates = MainMenuStates::PlaySelectionMenu;
-        this->UnloadAssetsMainSelectionMenu();
-        this->LoadAssetsPlaySelectionMenu();
-                    
-    } 
-}
-
-void MainMenu::ProcessLogicPlaySelectionMenu()
-{
-    if ( NEA_GUIObjectGetEvent(this->BackButton) == NEA_Clicked)
-    {
-        this->mainmenustates = MainMenuStates::MainSelectionMenu;
-        this->UnloadAssetsPlaySelectionMenu();
-        this->LoadAssetsMainSelectionMenu();  
-    }
-    else if ( NEA_GUIObjectGetEvent(this->OnePlayerButton) == NEA_Clicked)
-    {
-        this->mainmenustates = MainMenuStates::OnePlayerPartyStart;
-        this->UnloadAssetsPlaySelectionMenu();
-        this->LoadAssetsOnePlayerPartyStart();
-    }
-}
-
-void MainMenu::ProcessLogicOnePlayerPartyStart()
-{
-
 }
 
 void MainMenu::RenderMainMenu()
@@ -333,19 +116,61 @@ void MainMenu::RenderMainMenu()
 
             case MainMenuStates::MainSelectionMenu:
             {
-                this->ProcessLogicMainSelectionMenu();
+                if (auto next = this->mainSelec.ProcessLogicMainSelectionMenu())
+                {
+                    this->mainSelec.UnloadAssetsMainSelectionMenu();
+                    this->mainmenustates = *next;
+                    switch (*next)
+                    {
+                        case MainMenuStates::PlaySelectionMenu:
+                            this->playSelec.LoadAssetsPlaySelectionMenu(); break;
+                        case MainMenuStates::OnePlayerPartyStart:
+                            this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
+                        case MainMenuStates::MainSelectionMenu:
+                            this->mainSelec.LoadAssetsMainSelectionMenu(); break;
+                        default: break;
+                    }
+                }
                 break;
             }
 
             case MainMenuStates::PlaySelectionMenu:
             {
-                this->ProcessLogicPlaySelectionMenu();
+                if (auto next = this->playSelec.ProcessLogicPlaySelectionMenu())
+                {
+                    this->playSelec.UnloadAssetsPlaySelectionMenu();
+                    this->mainmenustates = *next;
+                    switch (*next)
+                    {
+                        case MainMenuStates::MainSelectionMenu:
+                            this->mainSelec.LoadAssetsMainSelectionMenu(); break;
+                        case MainMenuStates::OnePlayerPartyStart:
+                            this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
+                        case MainMenuStates::PlaySelectionMenu:
+                            this->playSelec.LoadAssetsPlaySelectionMenu(); break;
+                        default: break;
+                    }
+                }
                 break;
             }
 
             case MainMenuStates::OnePlayerPartyStart:
             {
-                this->ProcessLogicOnePlayerPartyStart();
+                if (auto next = this->onePlayerParty.ProcessLogicOnePlayerPartyStart())
+                {
+                    this->onePlayerParty.UnloadAssetsOnePlayerPartyStart();
+                    this->mainmenustates = *next;
+                    switch (*next)
+                    {
+                        case MainMenuStates::MainSelectionMenu:
+                            this->mainSelec.LoadAssetsMainSelectionMenu(); break;
+                        case MainMenuStates::PlaySelectionMenu:
+                            this->playSelec.LoadAssetsPlaySelectionMenu(); break;
+                        case MainMenuStates::OnePlayerPartyStart:
+                            this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
+                        default: break;
+                    }
+                }
                 break;
 
             }

@@ -8,6 +8,7 @@
 #include <array>
 #include <print>
 #include <string>
+#include <optional>
 #include <exception>
 #include <nds.h>
 
