@@ -6,6 +6,12 @@
 
 void OnePlayerPartyStart::LoadAssetsOnePlayerPartyStart()
 {
+    this->player_number = 2;
+    this->old_player_number = 0;
+
+    this->cpu_level = CPULevel::Easy;
+    this->old_cpu_level = std::nullopt;
+
     this->EmptyMat = NEA_MaterialCreate();
     this->EmptyPal = NEA_PaletteCreate();
 
@@ -86,21 +92,21 @@ void OnePlayerPartyStart::LoadAssetsOnePlayerPartyStart()
     // Number CPU level section
     //
 
-    this->PrevPlayerLevelCPUButton = NEA_GUIButtonCreate(25, 120,
-                                                         25 + 32, 120 + 32);
+    this->PrevPlayerLevelCPUButton = NEA_GUIButtonCreate(25, 110,
+                                                         25 + 32, 110 + 32);
     NEA_GUIButtonConfig(this->PrevPlayerLevelCPUButton,
                         this->PrevPlayerMat[0], NEA_White, 31,
                         this->PrevPlayerMat[1], NEA_White, 31);
 
-    this->NextPlayerLevelCPUButton = NEA_GUIButtonCreate(190, 120,
-                                                         190 + 32, 120 + 32);
+    this->NextPlayerLevelCPUButton = NEA_GUIButtonCreate(190, 110,
+                                                         190 + 32, 110 + 32);
     NEA_GUIButtonConfig(this->NextPlayerLevelCPUButton,
                         this->NextPlayerMat[0], NEA_White, 31,
                         this->NextPlayerMat[1], NEA_White, 31);
 
 
-    this->EmptyLevelCPUButton = NEA_GUIButtonCreate(60, 120,
-                                            60 + 128, 120 + 32);
+    this->EmptyLevelCPUButton = NEA_GUIButtonCreate(60, 110,
+                                            60 + 128, 110 + 32);
 
     NEA_GUIButtonConfig(this->EmptyLevelCPUButton,
                         this->EmptyMat, NEA_White, 31,
@@ -121,8 +127,8 @@ void OnePlayerPartyStart::LoadAssetsOnePlayerPartyStart()
                         this->BackMat[0], NEA_White, 31,
                         this->BackMat[1], NEA_White, 31);
 
-    this->StartGameButton = NEA_GUIButtonCreate(180, 160,
-                                        180 + 64, 160 + 32);
+    this->StartGameButton = NEA_GUIButtonCreate(190, 160,
+                                        190 + 64, 160 + 32);
 
     NEA_GUIButtonConfig(this->StartGameButton,
                         this->StartGameMat[0], NEA_White, 31,
@@ -171,9 +177,138 @@ void OnePlayerPartyStart::UnloadAssetsOnePlayerPartyStart()
 
 std::optional<MainMenuStates> OnePlayerPartyStart::ProcessLogicOnePlayerPartyStart()
 {
+    if ((this->player_number == 2) && (this->player_number != this->old_player_number))
+    {
+        NEA_GUIButtonConfig(this->PrevPlayerNumberCPUButton,
+                            this->PrevPlayerMat[0], RGB15(15, 15, 15), 31,
+                            this->PrevPlayerMat[1], RGB15(15, 15, 15), 31);
+                            
+        this->old_player_number = 2;
+    }
+
+    if ((this->player_number == 3) && (this->player_number != this->old_player_number))
+    {
+        NEA_GUIButtonConfig(this->PrevPlayerNumberCPUButton,
+                            this->PrevPlayerMat[0], NEA_White, 31,
+                            this->PrevPlayerMat[1], NEA_White, 31);
+                            
+        this->old_player_number = 3;        
+    }
+
+    if ((this->player_number == 8) && (this->player_number != this->old_player_number))
+    {
+        NEA_GUIButtonConfig(this->NextPlayerNumberCPUButton,
+                            this->NextPlayerMat[0], RGB15(15, 15, 15), 31,
+                            this->NextPlayerMat[1], RGB15(15, 15, 15), 31);
+                            
+        this->old_player_number = 8;
+    }
+
+    if ((this->player_number == 7) && (this->player_number != this->old_player_number))
+    {
+        NEA_GUIButtonConfig(this->NextPlayerNumberCPUButton,
+                            this->NextPlayerMat[0], NEA_White, 31,
+                            this->NextPlayerMat[1], NEA_White, 31);
+                            
+        this->old_player_number = 7;        
+    }
+
+
+    if ((this->cpu_level == CPULevel::Easy) && (this->cpu_level != this->old_cpu_level))
+    {
+        NEA_GUIButtonConfig(this->PrevPlayerLevelCPUButton,
+                            this->PrevPlayerMat[0], RGB15(15, 15, 15), 31,
+                            this->PrevPlayerMat[1], RGB15(15, 15, 15), 31);
+        
+        NEA_GUIButtonConfig(this->NextPlayerLevelCPUButton,
+                            this->NextPlayerMat[0], NEA_White, 31,
+                            this->NextPlayerMat[1], NEA_White, 31);
+                            
+        this->old_cpu_level = CPULevel::Easy;        
+    }
+
+    if ((this->cpu_level == CPULevel::Hard) && (this->cpu_level != this->old_cpu_level))
+    {
+        NEA_GUIButtonConfig(this->NextPlayerLevelCPUButton,
+                            this->NextPlayerMat[0], RGB15(15, 15, 15), 31,
+                            this->NextPlayerMat[1], RGB15(15, 15, 15), 31);
+                            
+        this->old_cpu_level = CPULevel::Hard;        
+    }
+
+
+    if ((this->cpu_level == CPULevel::Medium) && (this->cpu_level != this->old_cpu_level))
+    {
+        NEA_GUIButtonConfig(this->PrevPlayerLevelCPUButton,
+                            this->PrevPlayerMat[0], NEA_White, 31,
+                            this->PrevPlayerMat[1], NEA_White, 31);
+
+        NEA_GUIButtonConfig(this->NextPlayerLevelCPUButton,
+                            this->NextPlayerMat[0], NEA_White, 31,
+                            this->NextPlayerMat[1], NEA_White, 31);
+                            
+        this->old_cpu_level = CPULevel::Medium;        
+    }
+
+    if (NEA_GUIObjectGetEvent(this->PrevPlayerNumberCPUButton) == NEA_Clicked)
+    {
+        if (this->player_number != 2)
+            this->player_number--;
+    }
+
+    if (NEA_GUIObjectGetEvent(this->NextPlayerNumberCPUButton) == NEA_Clicked)
+    {
+        if (this->player_number != 8)
+            this->player_number++;
+    }
+
+    if (NEA_GUIObjectGetEvent(this->PrevPlayerLevelCPUButton) == NEA_Clicked)
+    {
+        if (this->cpu_level != CPULevel::Easy)
+            this->cpu_level = static_cast<CPULevel>( static_cast<int>(this->cpu_level) - 1);
+    }
+
+    if (NEA_GUIObjectGetEvent(this->NextPlayerLevelCPUButton) == NEA_Clicked)
+    {
+        if (this->cpu_level != CPULevel::Hard)
+            this->cpu_level = static_cast<CPULevel>( static_cast<int>(this->cpu_level) + 1);
+    }
+
+
     if (NEA_GUIObjectGetEvent(this->BackButton) == NEA_Clicked)
     {
         return MainMenuStates::PlaySelectionMenu;
     }
+
+
     return std::nullopt;
+}
+
+void OnePlayerPartyStart::ActionOnePlayerPartyStart()
+{
+    NEA_GUIDraw();
+    NEA_RichTextRender3D(0, "Number of players", 72, 30);
+    NEA_RichTextRender3D(0, (std::to_string(this->player_number) + std::string(" players")).c_str(), 95, 57);
+
+    NEA_RichTextRender3D(0, "CPU Level", 87, 90);
+    switch (this->cpu_level)
+    {
+        case CPULevel::Easy:
+        {
+            NEA_RichTextRender3D(0, "Easy", 100, 117);
+            break;
+        }
+
+        case CPULevel::Medium:
+        {
+            NEA_RichTextRender3D(0, "Medium", 95, 117);
+            break;
+        }
+
+        case CPULevel::Hard:
+        {
+            NEA_RichTextRender3D(0, "Hard", 100, 117);
+            break;
+        }
+    }
 }

@@ -98,3 +98,8 @@ std::optional<MainMenuStates> PlaySelectionMenu::ProcessLogicPlaySelectionMenu()
     }
     return std::nullopt;
 }
+
+void PlaySelectionMenu::ActionPlaySelectionMenu()
+{
+    NEA_GUIDraw();
+}

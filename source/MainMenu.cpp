@@ -1,4 +1,6 @@
 #include "MainMenu.hpp"
+#include "MainMenuClasses/MainMenuStates.hpp"
+#include "globalHeader.hpp"
 
 
 MainMenu::MainMenu()
@@ -21,20 +23,36 @@ void MainMenu::SCREEN_TOP()
     // BG0 (3D) sits in front of BG1 (the 2D hex layer) per the priorities
     // set in LoadAssetsMainMenu, so text appears above the pattern with no
     // submission-order tricks.
-    if (this->mainmenustates == MainMenuStates::MainTitle)
-    {
-        if ((this->showOrNotTouchScreenText / 30) % 2 == 0)
+
+    switch (this->mainmenustates){
+        case MainMenuStates::MainTitle:
         {
-            NEA_RichTextRender3D(0, "Touch screen!", 70, 90);
+            if ((this->showOrNotTouchScreenText / 30) % 2 == 0)
+            {
+                NEA_RichTextRender3D(0, "Touch screen!", 70, 90);
+            }
+            this->showOrNotTouchScreenText++;
+
+            break;
         }
-        this->showOrNotTouchScreenText++;
-    }
-    else {
-        NEA_GUIDraw();
-    }
-    if (this->mainmenustates == MainMenuStates::OnePlayerPartyStart)
-    {
-        NEA_RichTextRender3D(0, "Touch screen!", 70, 70);
+
+        case MainMenuStates::MainSelectionMenu:
+        {
+            this->mainSelec.ActionMainSelectionMenu();
+            break;
+        }
+
+        case MainMenuStates::PlaySelectionMenu:
+        {
+            this->playSelec.ActionPlaySelectionMenu();
+            break;
+        }
+
+        case MainMenuStates::OnePlayerPartyStart:
+        {
+            this->onePlayerParty.ActionOnePlayerPartyStart();
+            break;
+        }
     }
 
 }

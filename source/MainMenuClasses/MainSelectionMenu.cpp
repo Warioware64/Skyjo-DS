@@ -39,3 +39,8 @@ std::optional<MainMenuStates> MainSelectionMenu::ProcessLogicMainSelectionMenu()
     }
     return std::nullopt;
 }
+
+void MainSelectionMenu::ActionMainSelectionMenu()
+{
+    NEA_GUIDraw();
+}

@@ -17,12 +17,22 @@
 #include <fat.h>
 
 
+
+
 enum class ClassStates
 {
     Init,
     Playing,
     Exit
 };
+
+enum class CPULevel
+{
+    Easy = 0,
+    Medium = 1,
+    Hard = 2
+};
+
 
 enum class MenusStates
 {

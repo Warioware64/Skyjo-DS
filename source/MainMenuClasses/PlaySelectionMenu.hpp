@@ -25,5 +25,6 @@ class PlaySelectionMenu
         void LoadAssetsPlaySelectionMenu();
         void UnloadAssetsPlaySelectionMenu();
         std::optional<MainMenuStates> ProcessLogicPlaySelectionMenu();
+        void ActionPlaySelectionMenu();
 
 };

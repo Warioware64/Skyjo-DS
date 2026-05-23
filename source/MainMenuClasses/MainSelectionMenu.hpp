@@ -15,5 +15,6 @@ class MainSelectionMenu
         void LoadAssetsMainSelectionMenu();
         void UnloadAssetsMainSelectionMenu();
         std::optional<MainMenuStates> ProcessLogicMainSelectionMenu();
+        void ActionMainSelectionMenu();
 
 };

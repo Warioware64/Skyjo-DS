@@ -49,7 +49,7 @@ EOF
 
 buttonName="MultiplayerButton"
 
-./generate_hex_button.py --label "MULTIPLAYER" --color green --output "./btns/${buttonName}.png"
+./generate_hex_button.py --label "MULTIPLAYER" --color blue --output "./btns/${buttonName}.png"
 
 filePtxPath=./btns/${buttonName}.ptxc
 
@@ -59,7 +59,7 @@ cat > $filePtxPath <<EOF
 -gt -og -v -cm 1024 -f tex4x4
 EOF
 
-./generate_hex_button.py --label "MULTIPLAYER" --color green --pressed --output "./btns/${buttonName}Pressed.png"
+./generate_hex_button.py --label "MULTIPLAYER" --color blue --pressed --output "./btns/${buttonName}Pressed.png"
 
 filePtxPath=./btns/${buttonName}Pressed.ptxc
 
@@ -94,7 +94,7 @@ EOF
 
 buttonName="PrevPlayerButton"
 
-./generate_hex_button.py --label "<" --color green --output "./btns/${buttonName}.png" --out_w 32 --out_h 32 --font_size 10
+./generate_hex_button.py --label "<" --color_tuple "(235, 89, 40)" --output "./btns/${buttonName}.png" --out_w 32 --out_h 32 --font_size 10
 
 filePtxPath=./btns/${buttonName}.ptxc
 
@@ -104,7 +104,7 @@ cat > $filePtxPath <<EOF
 -gt -og -v -cm 1024 -f tex4x4
 EOF
 
-./generate_hex_button.py --label "<" --color green --pressed --output "./btns/${buttonName}Pressed.png" --out_w 32 --out_h 32 --font_size 10
+./generate_hex_button.py --label "<" --color_tuple "(235, 89, 40)" --pressed --output "./btns/${buttonName}Pressed.png" --out_w 32 --out_h 32 --font_size 10
 
 filePtxPath=./btns/${buttonName}Pressed.ptxc
 
@@ -116,7 +116,7 @@ EOF
 
 buttonName="NextPlayerButton"
 
-./generate_hex_button.py --label ">" --color green --output "./btns/${buttonName}.png" --out_w 32 --out_h 32 --font_size 10
+./generate_hex_button.py --label ">" --color_tuple "(235, 89, 40)" --output "./btns/${buttonName}.png" --out_w 32 --out_h 32 --font_size 10
 
 filePtxPath=./btns/${buttonName}.ptxc
 
@@ -126,7 +126,7 @@ cat > $filePtxPath <<EOF
 -gt -og -v -cm 1024 -f tex4x4
 EOF
 
-./generate_hex_button.py --label ">" --color green --pressed --output "./btns/${buttonName}Pressed.png" --out_w 32 --out_h 32 --font_size 10
+./generate_hex_button.py --label ">" --color_tuple "(235, 89, 40)" --pressed --output "./btns/${buttonName}Pressed.png" --out_w 32 --out_h 32 --font_size 10
 
 filePtxPath=./btns/${buttonName}Pressed.ptxc
 
@@ -139,7 +139,7 @@ EOF
 
 buttonName="EmptyPlayerNumberButton"
 
-./generate_hex_button.py --label "" --color green --output "./btns/${buttonName}.png"
+./generate_hex_button.py --label "" --color_tuple "(235, 89, 40)" --output "./btns/${buttonName}.png"
 
 filePtxPath=./btns/${buttonName}.ptxc
 
@@ -153,7 +153,7 @@ EOF
 
 buttonName="StartGameButton"
 
-./generate_hex_button.py --label "START" --output "./btns/${buttonName}.png" --out_w 64 --out_h 32 --font_size 10
+./generate_hex_button.py --label "START" --color_tuple "(155, 34, 230)" --output "./btns/${buttonName}.png" --out_w 64 --out_h 32 --font_size 10
 
 filePtxPath=./btns/${buttonName}.ptxc
 
@@ -163,7 +163,7 @@ cat > $filePtxPath <<EOF
 -gt -og -v -cm 1024 -f tex4x4
 EOF
 
-./generate_hex_button.py --label "START" --pressed --output "./btns/${buttonName}Pressed.png" --out_w 64 --out_h 32 --font_size 10
+./generate_hex_button.py --label "START" --color_tuple "(155, 34, 230)" --pressed --output "./btns/${buttonName}Pressed.png" --out_w 64 --out_h 32 --font_size 10
 
 
 filePtxPath=./btns/${buttonName}Pressed.ptxc
