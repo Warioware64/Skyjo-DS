@@ -1,5 +1,6 @@
 #include "MainMenu.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
+#include "Process.hpp"
 #include "globalHeader.hpp"
 
 
@@ -68,6 +69,7 @@ void MainMenu::LoadAssetsMainMenu()
 {
     this->brightness = 16;
     this->frameTrigger = 0;
+    this->triggerPlayPartyOnePlayer = false;
     this->fadePhase = FadePhase::FadingIn;
     this->fadeStepInterval = 5;
     this->pendingNextState.reset();
@@ -166,6 +168,11 @@ void MainMenu::RenderMainMenu()
                         this->StartTransitionTo(*next);
                     break;
                 }
+
+                case MainMenuStates::TransitionToPlayOnePlayer:
+                {
+                    break;
+                }
             }
         }
 
@@ -194,6 +201,8 @@ void MainMenu::RenderMainMenu()
                                 this->playSelec.UnloadAssetsPlaySelectionMenu(); break;
                             case MainMenuStates::OnePlayerPartyStart:
                                 this->onePlayerParty.UnloadAssetsOnePlayerPartyStart(); break;
+                            case MainMenuStates::TransitionToPlayOnePlayer:
+                                break;
                             default: break;
                         }
                         if (this->pendingNextState)
@@ -209,6 +218,8 @@ void MainMenu::RenderMainMenu()
                                 this->playSelec.LoadAssetsPlaySelectionMenu(); break;
                             case MainMenuStates::OnePlayerPartyStart:
                                 this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
+                            case MainMenuStates::TransitionToPlayOnePlayer:
+                                this->triggerPlayPartyOnePlayer = true;
                             default: break;
                         }
                         this->fadePhase = FadePhase::FadingIn;
@@ -254,6 +265,15 @@ void MainMenu::RenderMainMenu()
             }
 
         }
+
+        if (this->triggerPlayPartyOnePlayer)
+            break;
+    }
+
+    if (this->triggerPlayPartyOnePlayer)
+    {
+        process.CallInitializationOnePlayerParty(this->onePlayerParty.Get_player_number(),
+                                                 this->onePlayerParty.Get_CPULevel());
     }
 }
 MainMenu mainmenu;

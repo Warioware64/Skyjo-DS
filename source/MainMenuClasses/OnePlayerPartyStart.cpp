@@ -1,8 +1,18 @@
 #include "OnePlayerPartyStart.hpp"
 #include "MainMenu.hpp"
+#include "MainMenuStates.hpp"
 #include <NEAGUI.h>
 #include <NEATexture.h>
 
+int OnePlayerPartyStart::Get_player_number()
+{
+    return this->player_number;
+}
+
+CPULevel OnePlayerPartyStart::Get_CPULevel()
+{
+    return this->cpu_level;
+}
 
 void OnePlayerPartyStart::LoadAssetsOnePlayerPartyStart()
 {
@@ -279,7 +289,10 @@ std::optional<MainMenuStates> OnePlayerPartyStart::ProcessLogicOnePlayerPartySta
     {
         return MainMenuStates::PlaySelectionMenu;
     }
-
+    else if (NEA_GUIObjectGetEvent(this->StartGameButton) == NEA_Clicked)
+    {
+        return MainMenuStates::TransitionToPlayOnePlayer;
+    }
 
     return std::nullopt;
 }

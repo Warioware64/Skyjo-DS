@@ -13,6 +13,17 @@ Process::~Process()
 
 }
 
+void Process::CallInitializationOnePlayerParty(int cpu_number, CPULevel cpu_level)
+{
+   this->classstates = ClassStates::Init;
+   this->menustates = MenusStates::PartyGameOnePlayer; 
+
+   this->cpu_number_arg = cpu_number;
+   this->cpu_level_arg = cpu_level;
+   this->party_type_arg = PartyType::OnePlayerCPU;
+
+}
+
 void Process::ProcessInit()
 {
     irqEnable(IRQ_HBLANK);
@@ -55,6 +66,11 @@ void Process::ProcessGame()
         {
             mainmenu.LoadAssetsMainMenu();
             this->classstates = ClassStates::Playing;
+        }
+        else if (this->menustates == MenusStates::PartyGameOnePlayer)
+        {
+            error.errorReason.assign("HERE IS CRASH LOL");
+            std::terminate();
         }
     }
     else if(this->classstates == ClassStates::Playing)

@@ -10,9 +10,17 @@ class Process
     private:
         ClassStates classstates;
         MenusStates menustates;
+
+        int cpu_number_arg;
+        CPULevel cpu_level_arg;
+        PartyType party_type_arg;
     public:
         Process();
         ~Process();
+
+        
+
+        void CallInitializationOnePlayerParty(int cpu_number, CPULevel cpu_level);
 
         void ProcessInit();
         void ProcessGame();

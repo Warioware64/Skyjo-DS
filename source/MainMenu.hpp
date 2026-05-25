@@ -2,6 +2,7 @@
 
 
 #include "globalHeader.hpp"
+#include "Process.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
 #include "MainMenuClasses/MainSelectionMenu.hpp"
 #include "MainMenuClasses/PlaySelectionMenu.hpp"
@@ -37,6 +38,10 @@ class MainMenu
         MainMenuStates OLDmainmenustates;
 
         uint32_t keys;
+
+        bool triggerPlayPartyOnePlayer = false;
+
+
 
         int showOrNotTouchScreenText = 1;
         int frameTouchDetect = 0;

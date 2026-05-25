@@ -17,7 +17,12 @@
 #include <fat.h>
 
 
-
+enum class PartyType
+{
+    OnePlayerCPU,
+    LocalMultiplayer,
+    OnlineMultiplayer
+};
 
 enum class ClassStates
 {
@@ -37,7 +42,7 @@ enum class CPULevel
 enum class MenusStates
 {
     MainMenu,
-    PartyGame
+    PartyGameOnePlayer
 };
 enum class CardType : int
 {

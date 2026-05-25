@@ -43,6 +43,10 @@ class OnePlayerPartyStart
         NEA_GUIObj *BackButton;
 
     public:
+
+        int Get_player_number();
+        CPULevel Get_CPULevel();
+
         void LoadAssetsOnePlayerPartyStart();
         void UnloadAssetsOnePlayerPartyStart();
         std::optional<MainMenuStates> ProcessLogicOnePlayerPartyStart();
