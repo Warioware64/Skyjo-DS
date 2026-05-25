@@ -2,10 +2,7 @@
 #include "MainMenuClasses/MainMenuStates.hpp"
 #include "Process.hpp"
 #include "globalHeader.hpp"
-#include <NEACamera.h>
-#include <NEAPalette.h>
-#include <NEAParticle.h>
-#include <NEATexture.h>
+
 
 
 MainMenu::MainMenu()

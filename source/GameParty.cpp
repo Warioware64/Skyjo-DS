@@ -1,8 +1,6 @@
 #include "GameParty.hpp"
 #include "globalHeader.hpp"
-#include <NEAGeneral.h>
-#include <NEAPalette.h>
-#include <NEATexture.h>
+
 
 
 GameParty::GameParty()

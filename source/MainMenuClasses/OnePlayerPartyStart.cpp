@@ -1,8 +1,7 @@
 #include "OnePlayerPartyStart.hpp"
 #include "MainMenu.hpp"
 #include "MainMenuStates.hpp"
-#include <NEAGUI.h>
-#include <NEATexture.h>
+
 
 int OnePlayerPartyStart::Get_player_number()
 {
