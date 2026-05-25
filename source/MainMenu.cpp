@@ -54,6 +54,11 @@ void MainMenu::SCREEN_TOP()
             this->onePlayerParty.ActionOnePlayerPartyStart();
             break;
         }
+
+        case MainMenuStates::TransitionToPlayOnePlayer:
+        {
+            break;
+        }
     }
 
 }

@@ -1,5 +1,6 @@
 #include "Process.hpp"
 #include "DebugPrint.hpp"
+#include "GameParty.hpp"
 #include "MainMenu.hpp"
 #include "globalHeader.hpp"
 
@@ -69,8 +70,10 @@ void Process::ProcessGame()
         }
         else if (this->menustates == MenusStates::PartyGameOnePlayer)
         {
-            error.errorReason.assign("HERE IS CRASH LOL");
-            std::terminate();
+            //error.errorReason.assign("HERE IS CRASH LOL");
+            //std::terminate();
+            gameparty.InitGamePartySituation(this->cpu_number_arg, this->cpu_level_arg, this->party_type_arg);
+            this->classstates = ClassStates::Playing;
         }
     }
     else if(this->classstates == ClassStates::Playing)
@@ -78,6 +81,10 @@ void Process::ProcessGame()
         if (this->menustates == MenusStates::MainMenu)
         {
             mainmenu.RenderMainMenu();
+        }
+        else if (this->menustates == MenusStates::PartyGameOnePlayer)
+        {
+            gameparty.RenderGameParty();
         }
     }
     //std::terminate();

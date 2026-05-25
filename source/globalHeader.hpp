@@ -7,7 +7,11 @@
 #include <utility>
 #include <array>
 #include <print>
+#include <vector>
 #include <string>
+#include <random>
+#include <iterator>
+#include <algorithm>
 #include <optional>
 #include <exception>
 #include <nds.h>

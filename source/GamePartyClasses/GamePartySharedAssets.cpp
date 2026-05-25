@@ -12,226 +12,60 @@ GamePartySharedAssets::~GamePartySharedAssets()
 
 }
 
-NEA_Material* GamePartySharedAssets::GetCardMat(std::optional<CardType> card_type)
+NEA_Material*& GamePartySharedAssets::GetCardMat(std::optional<CardType> card_type)
 {
-    NEA_Material *MatRes;
     if (card_type == std::nullopt)
     {
-        MatRes = this->card_back_mat;
-        return MatRes;
+        return this->card_back_mat;
     }
 
     switch (card_type.value())
     {
-        case CardType::Neutral_0:
-        {
-            MatRes = this->card_0_mat;
-            break;
-        }
-
-        case CardType::Positive_1:
-        {
-            MatRes = this->card_1_mat;
-            break;
-        }
-
-        case CardType::Positive_2:
-        {
-            MatRes = this->card_2_mat;
-            break;
-        }
-        case CardType::Positive_3:
-        {
-            MatRes = this->card_3_mat;
-            break;
-        }
-
-        case CardType::Positive_4:
-        {
-            MatRes = this->card_4_mat;
-            break;
-        }
-
-        case CardType::Positive_5:
-        {
-            MatRes = this->card_5_mat;
-            break;
-        }
-
-        case CardType::Positive_6:
-        {
-            MatRes = this->card_6_mat;
-            break;
-        }
-
-        case CardType::Positive_7:
-        {
-            MatRes = this->card_7_mat;
-            break;
-        }
-
-        case CardType::Positive_8:
-        {
-            MatRes = this->card_8_mat;
-            break;
-        }
-
-        case CardType::Positive_9:
-        {
-            MatRes = this->card_9_mat;
-            break;
-        }
-
-        case CardType::Positive_10:
-        {
-            MatRes = this->card_10_mat;
-            break;
-        }
-
-        case CardType::Positive_11:
-        {
-            MatRes = this->card_11_mat;
-            break;
-        }
-
-        case CardType::Positive_12:
-        {
-            MatRes = this->card_12_mat;
-            break;
-        }
-
-        case CardType::Negative_1:
-        {
-            MatRes = this->card_n1_mat;
-            break;
-        }
-
-        case CardType::Negative_2:
-        {
-            MatRes = this->card_n2_mat;
-            break;
-        }
-
-
-        default:
-        {
-            MatRes = this->card_0_mat;
-            break;
-        }
+        case CardType::Neutral_0:   return this->card_0_mat;
+        case CardType::Positive_1:  return this->card_1_mat;
+        case CardType::Positive_2:  return this->card_2_mat;
+        case CardType::Positive_3:  return this->card_3_mat;
+        case CardType::Positive_4:  return this->card_4_mat;
+        case CardType::Positive_5:  return this->card_5_mat;
+        case CardType::Positive_6:  return this->card_6_mat;
+        case CardType::Positive_7:  return this->card_7_mat;
+        case CardType::Positive_8:  return this->card_8_mat;
+        case CardType::Positive_9:  return this->card_9_mat;
+        case CardType::Positive_10: return this->card_10_mat;
+        case CardType::Positive_11: return this->card_11_mat;
+        case CardType::Positive_12: return this->card_12_mat;
+        case CardType::Negative_1:  return this->card_n1_mat;
+        case CardType::Negative_2:  return this->card_n2_mat;
+        default:                    return this->card_0_mat;
     }
-
-    return MatRes;
 }
 
-NEA_Palette* GamePartySharedAssets::GetCardPal(std::optional<CardType> card_type)
+NEA_Palette*& GamePartySharedAssets::GetCardPal(std::optional<CardType> card_type)
 {
-    NEA_Palette *palRes;
-
     if (card_type == std::nullopt)
     {
-        palRes = this->card_back_pal;
-        return palRes; 
+        return this->card_back_pal;
     }
 
     switch (card_type.value())
     {
-        case CardType::Neutral_0:
-        {
-            palRes = this->card_0_pal;
-            break;
-        }
-
-        case CardType::Positive_1:
-        {
-            palRes = this->card_1_pal;
-            break;
-        }
-
-        case CardType::Positive_2:
-        {
-            palRes = this->card_2_pal;
-            break;
-        }
-        case CardType::Positive_3:
-        {
-            palRes = this->card_3_pal;
-            break;
-        }
-
-        case CardType::Positive_4:
-        {
-            palRes = this->card_4_pal;
-            break;
-        }
-
-        case CardType::Positive_5:
-        {
-            palRes = this->card_5_pal;
-            break;
-        }
-
-        case CardType::Positive_6:
-        {
-            palRes = this->card_6_pal;
-            break;
-        }
-
-        case CardType::Positive_7:
-        {
-            palRes = this->card_7_pal;
-            break;
-        }
-
-        case CardType::Positive_8:
-        {
-            palRes = this->card_8_pal;
-            break;
-        }
-
-        case CardType::Positive_9:
-        {
-            palRes = this->card_9_pal;
-            break;
-        }
-
-        case CardType::Positive_10:
-        {
-            palRes = this->card_10_pal;
-            break;
-        }
-
-        case CardType::Positive_11:
-        {
-            palRes = this->card_11_pal;
-            break;
-        }
-
-        case CardType::Positive_12:
-        {
-            palRes = this->card_12_pal;
-            break;
-        }
-
-        case CardType::Negative_1:
-        {
-            palRes = this->card_n1_pal;
-            break;
-        }
-
-        case CardType::Negative_2:
-        {
-            palRes = this->card_n2_pal;
-            break;
-        }
-        
-        default:
-        {
-            palRes = this->card_0_pal;
-            break;
-        }
+        case CardType::Neutral_0:   return this->card_0_pal;
+        case CardType::Positive_1:  return this->card_1_pal;
+        case CardType::Positive_2:  return this->card_2_pal;
+        case CardType::Positive_3:  return this->card_3_pal;
+        case CardType::Positive_4:  return this->card_4_pal;
+        case CardType::Positive_5:  return this->card_5_pal;
+        case CardType::Positive_6:  return this->card_6_pal;
+        case CardType::Positive_7:  return this->card_7_pal;
+        case CardType::Positive_8:  return this->card_8_pal;
+        case CardType::Positive_9:  return this->card_9_pal;
+        case CardType::Positive_10: return this->card_10_pal;
+        case CardType::Positive_11: return this->card_11_pal;
+        case CardType::Positive_12: return this->card_12_pal;
+        case CardType::Negative_1:  return this->card_n1_pal;
+        case CardType::Negative_2:  return this->card_n2_pal;
+        default:                    return this->card_0_pal;
     }
-
-    return palRes;
 }
 
 std::string GamePartySharedAssets::GetCardGRFpath(std::optional<CardType> card_type)

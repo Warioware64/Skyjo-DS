@@ -4,6 +4,7 @@
 #include "globalHeader.hpp"
 #include "Intro.hpp"
 #include "MainMenu.hpp"
+#include "GameParty.hpp"
 
 class Process
 {

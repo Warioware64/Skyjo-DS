@@ -54,8 +54,8 @@ class GamePartySharedAssets
         GamePartySharedAssets();
         ~GamePartySharedAssets();
 
-        NEA_Material* GetCardMat(std::optional<CardType> card_type);
-        NEA_Palette* GetCardPal(std::optional<CardType> card_type);
+        NEA_Material*& GetCardMat(std::optional<CardType> card_type);
+        NEA_Palette*& GetCardPal(std::optional<CardType> card_type);
         std::string GetCardGRFpath(std::optional<CardType> card_type);
 };
 
