@@ -2,6 +2,10 @@
 #include "MainMenuClasses/MainMenuStates.hpp"
 #include "Process.hpp"
 #include "globalHeader.hpp"
+#include <NEACamera.h>
+#include <NEAPalette.h>
+#include <NEAParticle.h>
+#include <NEATexture.h>
 
 
 MainMenu::MainMenu()
@@ -16,6 +20,15 @@ MainMenu::~MainMenu()
 
 void MainMenu::SCREEN_TOP()
 {
+    int angle = (this->emitFrame * 1) & 0x1FF;
+    int32_t cx = mulf32(floattof32(3.5f), cosLerp(angle << 6));
+    int32_t cz = mulf32(floattof32(3.5f), sinLerp(angle << 6));
+    NEA_CameraSetI(this->emitCam, cx, floattof32(1.5f), cz,
+                              0, floattof32(0.4f), 0,
+                              0, floattof32(1.0f), 0);
+    NEA_CameraUse(this->emitCam);
+    NEA_ParticleEmitterDraw(this->hexEmit);
+
     NEA_2DViewInit();
     NEA_ClearColorSet(NEA_White, 0, 63);
 
@@ -61,6 +74,8 @@ void MainMenu::SCREEN_TOP()
         }
     }
 
+
+
 }
 
 void MainMenu::SCREEN_BOTTOM()
@@ -78,6 +93,25 @@ void MainMenu::LoadAssetsMainMenu()
     this->fadePhase = FadePhase::FadingIn;
     this->fadeStepInterval = 5;
     this->pendingNextState.reset();
+
+    this->emitCam = NEA_CameraCreate();
+    NEA_ParticleSystemReset(0);
+    NEA_ParticleSystemSetCamera(this->emitCam);
+
+    this->hexParMat = NEA_MaterialCreate();
+    this->hexParPal = NEA_PaletteCreate();
+
+    
+    this->hexEmit = NEA_ParticleEmitterCreate();
+
+    NEA_MaterialSetName(this->hexParMat, "hexPart");
+
+    NEA_MaterialTexLoadGRF(this->hexParMat, this->hexParPal,
+                            NEA_TEXGEN_TEXCOORD, "mainmenu/hex/hexParticle_png.grf");
+
+    NEA_ParticleEmitterLoadFAT(this->hexEmit, "mainmenu/hex/hexNPE.npe");
+    NEA_ParticleEmitterSetPosition(this->hexEmit, 0, floattof32(-2.0), 0);
+    NEA_ParticleEmitterPlay(this->hexEmit);
 
     // Rich-text font (3D quad path) for the menu labels.
     NEA_RichTextResetSystem();
@@ -133,9 +167,9 @@ void MainMenu::RenderMainMenu()
         this->OLDmainmenustates = this->mainmenustates;
 
         if (this->canTouchDetect)
-            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_GUI));
+            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_GUI | NEA_UPDATE_PARTICLES));
         else
-            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(0));
+            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_PARTICLES));
 
         scanKeys();
         this->keys = keysDown();

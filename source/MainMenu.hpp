@@ -7,6 +7,7 @@
 #include "MainMenuClasses/MainSelectionMenu.hpp"
 #include "MainMenuClasses/PlaySelectionMenu.hpp"
 #include "MainMenuClasses/OnePlayerPartyStart.hpp"
+#include <NEAPalette.h>
 
 class MainMenu
 {
@@ -29,6 +30,11 @@ class MainMenu
         NEA_Hw2DBG *hexBGtop;
         NEA_Hw2DBG *hexBGbot;
 
+        NEA_Material *hexParMat;
+        NEA_Palette *hexParPal;
+        NEA_ParticleEmitter *hexEmit;
+        NEA_Camera *emitCam;
+
         MainSelectionMenu mainSelec;
         PlaySelectionMenu playSelec;
         OnePlayerPartyStart onePlayerParty;
@@ -49,6 +55,9 @@ class MainMenu
         bool canTouchDetect = false;
         int frameTrigger = 0;
         int brightness = 16;
+
+        int emitFrame;
+
         // Drives the brightness fade. Initial boot is FadingIn at the slow
         // intro speed; menu-to-menu switches use a quicker speed via
         // fadeStepInterval. pendingNextState is consumed at the fade apex.

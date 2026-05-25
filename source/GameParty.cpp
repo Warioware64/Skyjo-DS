@@ -90,6 +90,7 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     }
         */
     
+    
 
 
 }

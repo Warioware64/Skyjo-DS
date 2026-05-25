@@ -24,10 +24,13 @@ nitrofs = NitroFS()
 nitrofs.add_grit(['resources/introBGs/'],     out_dir='intro/')
 nitrofs.add_grit(['resources/MainMenu/bg/'],  out_dir='mainmenu/')
 # Rich-text font for the menu stays as a tex4x4 atlas (3D quad text path).
+
 nitrofs.add_ptexconv(['resources/MainMenu/font/'],      out_dir='mainmenu/font/')
+nitrofs.add_ptexconv(['resources/MainMenu/hexMat/'],      out_dir='mainmenu/hex/')
 nitrofs.add_ptexconv(['resources/MainMenu/btns/'],      out_dir='mainmenu/btns/')
 nitrofs.add_ptexconv(['resources/cards/png/'],      out_dir='cards/')
 nitrofs.add_bmfont_fnt(['resources/MainMenu/font/'],    out_dir='mainmenu/font/')
+nitrofs.add_files_unchanged(['resources/MainMenu/hex/'], out_dir='mainmenu/hex/')
 nitrofs.generate_image()
 
 arm9 = Arm9Binary(
