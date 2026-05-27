@@ -51,6 +51,7 @@ nds = NdsRom(
     binaries=[arm9, nitrofs],
     nds_path='skyjo-nds.nds',
     game_title='SKYJO DS',
+    game_icon="iconSKYJO.png",
     game_subtitle='Version',
 )
 nds.generate_nds()

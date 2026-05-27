@@ -21,9 +21,9 @@ import math
 import os
 from PIL import Image, ImageDraw, ImageFont
 
-OUT_W, OUT_H = 64, 128       # power-of-2 texture size
+OUT_W, OUT_H = 32, 64       # power-of-2 texture size
 SCALE = 4                    # supersample factor
-CARD_W, CARD_H = 64, 96      # card area, centered in the texture
+CARD_W, CARD_H = 32, 48      # card area, centered in the texture
 
 MIN_VALUE, MAX_VALUE = -2, 12
 

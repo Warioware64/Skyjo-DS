@@ -1,5 +1,7 @@
 #include "GameParty.hpp"
 #include "globalHeader.hpp"
+#include <NEA2D.h>
+#include <NEAGeneral.h>
 
 
 
@@ -71,7 +73,23 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     }
     
     
+    
+    int x = 56;
+    int y = 15;
+    for (size_t i = 0; i < 12; i++)
+    {
+        this->dumbTest[i] = NEA_SpriteCreate();
+        NEA_SpriteSetMaterial(this->dumbTest[i], sharedAssetsGameParty.GetCardMat(std::nullopt));
+        NEA_SpriteSetPos(this->dumbTest[i], x, y);
+        x += 36;
+        if (((i + 1) % 4 == 0) && ( i != 0))
+        {
+            y += 52;
+            x = 56;
+        }
+    }
 
+    setBrightness(3, 0);
     /*
     for (auto const& item : this->playerDeck)
     {
@@ -95,6 +113,13 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
 
 void GameParty::RenderGameParty()
 {
-    NEA_WaitForVBL(NEA_CAN_SKIP_VBL);
+    while (1)
+    {
+        NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(0));
+        NEA_Process([](){
+            NEA_2DViewInit();
+            NEA_SpriteDrawAll();
+        });
+    }
 }
 GameParty gameparty;

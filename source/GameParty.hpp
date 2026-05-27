@@ -4,6 +4,7 @@
 #include "ErrorHandler.hpp"
 
 #include "GamePartyClasses/GamePartySharedAssets.hpp"
+#include <NEAGUI.h>
 
 using PlayerGames = std::array<CardType, 12>;
 class GameParty
@@ -15,6 +16,8 @@ class GameParty
         std::vector<PlayerGames> playerDeck;
         std::vector<CardType> cardPreStack;
         std::vector<CardType> cardStack;
+
+        NEA_Sprite *dumbTest[12];
     public:
         GameParty();
         ~GameParty();
