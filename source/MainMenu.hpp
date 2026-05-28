@@ -7,7 +7,7 @@
 #include "MainMenuClasses/MainSelectionMenu.hpp"
 #include "MainMenuClasses/PlaySelectionMenu.hpp"
 #include "MainMenuClasses/OnePlayerPartyStart.hpp"
-#include <NEAPalette.h>
+
 
 class MainMenu
 {

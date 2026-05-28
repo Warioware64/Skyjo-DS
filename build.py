@@ -29,6 +29,10 @@ nitrofs.add_ptexconv(['resources/MainMenu/font/'],      out_dir='mainmenu/font/'
 nitrofs.add_ptexconv(['resources/MainMenu/hexMat/'],      out_dir='mainmenu/hex/')
 nitrofs.add_ptexconv(['resources/MainMenu/btns/'],      out_dir='mainmenu/btns/')
 nitrofs.add_ptexconv(['resources/cards/png/'],      out_dir='cards/')
+nitrofs.add_ptexconv(['resources/cards/pngObj/'],      out_dir='cards2/')
+nitrofs.add_ptexconv(['resources/inGame/'],      out_dir='ingame/')
+
+#nitrofs.add_grit(['resources/cards/card2/'],  out_dir='cards/')
 nitrofs.add_bmfont_fnt(['resources/MainMenu/font/'],    out_dir='mainmenu/font/')
 nitrofs.add_files_unchanged(['resources/MainMenu/hex/'], out_dir='mainmenu/hex/')
 nitrofs.generate_image()

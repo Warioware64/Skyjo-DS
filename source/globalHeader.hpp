@@ -20,6 +20,11 @@
 #include <filesystem.h>
 #include <fat.h>
 
+enum class CardReturn
+{
+    Unreturned,
+    Returned
+};
 
 enum class PartyType
 {
