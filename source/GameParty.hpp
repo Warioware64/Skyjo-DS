@@ -4,6 +4,9 @@
 #include "ErrorHandler.hpp"
 #include "DebugPrint.hpp"
 #include "GamePartyClasses/GamePartySharedAssets.hpp"
+#include "GamePartyClasses/PlayerController.hpp"
+
+#include <memory>
 
 
 using PlayerGames = std::array<CardType, 12>;
@@ -21,15 +24,20 @@ class GameParty
         void LoadGamePartyAssets();
         void InitCardStack();
 
-        std::vector<PlayerGames> playerDeck;
+        void BuildControllers(int playerCount);
+        void TickInitialReveal();
+        void TickTurn();
+        void TickScoring();
+        void HandleTopScreenCycling();
+        void RefreshDiscardSprite();
+        void RefreshTopScreen();
+        void RefreshMyHandSprite(int slot);
+        void ResolveColumnClears(int playerIdx);
+        bool HandFullyRevealed(int playerIdx) const;
+        void AdvanceToNextPlayer();
+
         std::vector<CardType> cardPreStack;
-        std::vector<CardType> cardStack;
-        std::vector<CardReturnType> cardReturns;
 
-        uint32_t keydown;
-        touchPosition touchData;
-
-        std::array<TouchPoseMyCard, 12> MyCardPos;
         NEA_Material *NotPossibleIconMat;
         NEA_Palette *NotPossibleIconPal;
 
@@ -38,11 +46,44 @@ class GameParty
         NEA_Sprite *myPacket[12];
         NEA_Sprite *pullpacket[2];
         NEA_Sprite *pullpacketIconNot[2];
+        NEA_Sprite *heldCardSprite;
 
+
+        NEA_Hw2DOBJAsset *OBJ2dCardsAssets[16];
         NEA_Hw2DOBJ *viewGame[12];
+
+        std::vector<std::unique_ptr<IPlayerController>> controllers;
+        std::array<int, 12> initialRevealCount; // per-player count revealed during InitialReveal
+
+        CPULevel cpuLevel;
+        PartyType partyType;
+        int playerCount;
+
+        GamePhase phase;
+        int currentPlayerIndex;
+        int startingPlayerIndex;
+        std::optional<int> lastRoundTriggerPlayerIndex;
+        std::optional<DrawSource> drawSource;
+        std::optional<CardType> heldCard;
+
+        int topScreenViewPlayerIdx;
+        uint32_t prevKeydown;
+
     public:
         GameParty();
         ~GameParty();
+
+        // Public game state. Controllers (HumanTouchController, CpuController and
+        // the strategy namespaces) read these to make their decisions; the state
+        // machine in GameParty.cpp is the only writer.
+        std::vector<PlayerGames> playerDeck;
+        std::vector<CardReturnType> cardReturns;
+        std::vector<CardType> cardStack;
+        std::vector<CardType> discardPile;
+
+        std::array<TouchPoseMyCard, 12> MyCardPos;
+        uint32_t keydown;
+        touchPosition touchData;
 
         void InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyType party_arg);
         void RenderGameParty();

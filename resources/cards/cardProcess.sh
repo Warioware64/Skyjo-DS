@@ -123,7 +123,7 @@ filePtxPath=./pngObj/card_0.ptxc
 echo >> $filePtxPath
 
 cat > $filePtxPath <<EOF
--gb -og -v -bt4 -cn -p 1 
+-gb -og -v -bt4 -cn -p 1
 EOF
 
 filePtxPath=./pngObj/card_1.ptxc

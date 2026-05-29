@@ -49,7 +49,7 @@ build.ninja
 .ninja_log
 
 Makefile
-
+NEA_HW2DOBJ_BUG.md
 # CMake generated files
 CMakeFiles/
 CMakeCache.txt

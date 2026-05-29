@@ -50,9 +50,26 @@ SKYJO_CARDS: list[tuple[int, int, int]] = [
 BACK_COLOR = (40, 52, 78)    # slate-blue back, distinct from every face color
 BACK_ACCENT = (236, 238, 245)
 
+# Color key used for hardware 2D OBJ sprites (the cards2/ path). grit keys this
+# exact color to palette index 0 (transparent) via -gTff00ff. No card face or
+# accent color is pure magenta, so keying it can't punch holes in the artwork.
+MAGENTA = (255, 0, 255)
+
 
 def darker(rgb, f=0.70):
     return tuple(max(0, int(c * f)) for c in rgb)
+
+
+def flatten_on_magenta(img: Image.Image) -> Image.Image:
+    """Composite an RGBA card onto an opaque magenta (FF00FF) background.
+
+    The 3D-texture path keeps an alpha channel, but the hardware OBJ sprite
+    path is paletted (4bpp) and has no alpha — it relies on a color key. Fully
+    transparent pixels become exact magenta (keyed to transparent by grit);
+    anti-aliased edges blend toward magenta and stay opaque.
+    """
+    bg = Image.new('RGBA', img.size, MAGENTA + (255,))
+    return Image.alpha_composite(bg, img.convert('RGBA')).convert('RGB')
 
 
 def text_color(rgb: tuple[int, int, int]) -> tuple[int, int, int]:
@@ -207,6 +224,11 @@ def main() -> None:
                         help='render all 15 cards + back (the default)')
     parser.add_argument('--outdir', default=None,
                         help='output directory (default: ./png next to this script)')
+    parser.add_argument('--magenta-bg', action='store_true',
+                        help='flatten cards onto an opaque magenta (FF00FF) '
+                             'background for the hardware OBJ sprite path '
+                             '(grit -gTff00ff keys it to transparent) instead '
+                             'of keeping an alpha channel')
     parser.add_argument('--out_w', type=int, default=OUT_W)
     parser.add_argument('--out_h', type=int, default=OUT_H)
     parser.add_argument('--scale', type=int, default=SCALE)
@@ -225,6 +247,8 @@ def main() -> None:
                 card_w=args.card_w, card_h=args.card_h)
 
     def save(img, name):
+        if args.magenta_bg:
+            img = flatten_on_magenta(img)
         path = os.path.join(outdir, name)
         img.save(path)
         print(f'Wrote {path} ({img.width}x{img.height})')
