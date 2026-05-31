@@ -23,7 +23,8 @@
 enum class CardReturn
 {
     Unreturned,
-    Returned
+    Returned,
+    Cleared
 };
 
 enum class PartyType

@@ -16,7 +16,4 @@ class HumanTouchController : public IPlayerController
 
         std::optional<int>
             ChooseDiscardReplaceSlot(const GameParty& g, int playerIdx, CardType drawn) override;
-
-    private:
-        bool waitingFlipOnlyDecision = false;
 };

@@ -39,14 +39,31 @@ void GameParty::GamePartyLogicRender()
     NEA_2DViewInit();
 
     const bool initPhase = (this->phase == GamePhase::InitialReveal);
+
+    // Discarding a stack-drawn card requires flipping a face-down card. When the
+    // human holds a stack card but has none left, discarding is not allowed
+    // (they must swap), so flag the discard pile as unavailable.
+    const bool mustSwap = this->heldCard.has_value() &&
+                          this->drawSource == DrawSource::Stack &&
+                          this->currentPlayerIndex == 0 &&
+                          this->HandFullyRevealed(0);
+
     NEA_SpriteVisible(this->pullpacketIconNot[0], initPhase);
-    NEA_SpriteVisible(this->pullpacketIconNot[1], initPhase);
+    NEA_SpriteVisible(this->pullpacketIconNot[1], initPhase || mustSwap);
 
     NEA_SpriteVisible(this->heldCardSprite, this->heldCard.has_value());
 
     if (initPhase)
     {
         NEA_RichTextRender3D(0, "Reveal two card \n", 120, 15);
+    }
+    else if (this->awaitingDiscardReveal && this->currentPlayerIndex == 0)
+    {
+        NEA_RichTextRender3D(0, "Reveal a card \n", 120, 15);
+    }
+    else if (mustSwap)
+    {
+        NEA_RichTextRender3D(0, "Place the card \n", 120, 15);
     }
     NEA_SpriteDrawAll();
 }
@@ -143,6 +160,7 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     this->partyType = party_arg;
     this->playerCount = number_arg;
     this->partyFirstTwoDraw = true;
+    this->awaitingDiscardReveal = false;
     this->phase = GamePhase::InitialReveal;
     this->currentPlayerIndex = 0;
     this->startingPlayerIndex = 0;
@@ -247,12 +265,19 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
 
 void GameParty::RefreshMyHandSprite(int slot)
 {
+    if (this->cardReturns.at(0).at(slot) == CardReturn::Cleared)
+    {
+        NEA_SpriteVisible(this->myPacket[slot], false);
+        return;
+    }
+
     std::optional<CardType> mat = std::nullopt;
     if (this->cardReturns.at(0).at(slot) == CardReturn::Returned)
     {
         mat = this->playerDeck.at(0).at(slot);
     }
     NEA_SpriteSetMaterial(this->myPacket[slot], sharedAssetsGameParty.GetCardMat(mat));
+    NEA_SpriteVisible(this->myPacket[slot], true);
 }
 
 void GameParty::RefreshDiscardSprite()
@@ -276,6 +301,11 @@ void GameParty::RefreshTopScreen()
     if (p < 0 || p >= this->playerCount) return;
     for (int i = 0; i < 12; ++i)
     {
+        if (this->cardReturns.at(p).at(i) == CardReturn::Cleared)
+        {
+            NEA_Hw2DOBJSetVisible(this->viewGame[i], false);
+            continue;
+        }
         std::optional<CardType> face = std::nullopt;
         if (this->cardReturns.at(p).at(i) == CardReturn::Returned)
             face = this->playerDeck.at(p).at(i);
@@ -342,6 +372,31 @@ void GameParty::TickInitialReveal()
 void GameParty::TickTurn()
 {
     auto& ctrl = *this->controllers[this->currentPlayerIndex];
+    int p = this->currentPlayerIndex;
+
+    // The player discarded a stack-drawn card and now must reveal one of their
+    // own face-down cards before the turn can end.
+    if (this->awaitingDiscardReveal)
+    {
+        bool hasFaceDown = false;
+        for (int i = 0; i < 12; ++i)
+            if (this->cardReturns.at(p).at(i) == CardReturn::Unreturned) { hasFaceDown = true; break; }
+
+        if (hasFaceDown)
+        {
+            auto slot = ctrl.ChooseInitialReveal(*this, p);
+            if (!slot) return;
+            if (this->cardReturns.at(p).at(*slot) != CardReturn::Unreturned) return;
+            this->cardReturns.at(p).at(*slot) = CardReturn::Returned;
+            if (p == 0) this->RefreshMyHandSprite(*slot);
+            if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
+            this->ResolveColumnClears(p);
+        }
+
+        this->awaitingDiscardReveal = false;
+        this->EndTurn(p);
+        return;
+    }
 
     if (!this->drawSource)
     {
@@ -378,8 +433,6 @@ void GameParty::TickTurn()
         return;
     }
 
-    int p = this->currentPlayerIndex;
-    bool acted = false;
     int actedSlot = -1;
 
     if (*this->drawSource == DrawSource::Stack)
@@ -392,15 +445,18 @@ void GameParty::TickTurn()
             this->playerDeck.at(p).at(act->slot) = *this->heldCard;
             this->cardReturns.at(p).at(act->slot) = CardReturn::Returned;
             this->discardPile.push_back(oldCard);
+            actedSlot = act->slot;
         }
         else
         {
-            if (this->cardReturns.at(p).at(act->slot) == CardReturn::Unreturned)
-                this->cardReturns.at(p).at(act->slot) = CardReturn::Returned;
+            // Discard the drawn card straight onto the discard pile. The forced
+            // reveal is handled next tick via the awaitingDiscardReveal branch.
             this->discardPile.push_back(*this->heldCard);
+            this->heldCard = std::nullopt;
+            this->awaitingDiscardReveal = true;
+            this->RefreshDiscardSprite();
+            return;
         }
-        acted = true;
-        actedSlot = act->slot;
     }
     else
     {
@@ -410,18 +466,18 @@ void GameParty::TickTurn()
         this->playerDeck.at(p).at(*slot) = *this->heldCard;
         this->cardReturns.at(p).at(*slot) = CardReturn::Returned;
         this->discardPile.push_back(oldCard);
-        acted = true;
         actedSlot = *slot;
     }
 
-    if (acted)
-    {
-        if (p == 0) this->RefreshMyHandSprite(actedSlot);
-        if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
-        this->RefreshDiscardSprite();
-        this->ResolveColumnClears(p);
-    }
+    if (p == 0) this->RefreshMyHandSprite(actedSlot);
+    if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
+    this->RefreshDiscardSprite();
+    this->ResolveColumnClears(p);
+    this->EndTurn(p);
+}
 
+void GameParty::EndTurn(int p)
+{
     if (this->HandFullyRevealed(p) && !this->lastRoundTriggerPlayerIndex)
     {
         this->lastRoundTriggerPlayerIndex = p;
@@ -455,7 +511,8 @@ void GameParty::TickScoring()
     //       everything and waits for an input to end the game.
     for (int p = 0; p < this->playerCount; ++p)
         for (int i = 0; i < 12; ++i)
-            this->cardReturns.at(p).at(i) = CardReturn::Returned;
+            if (this->cardReturns.at(p).at(i) != CardReturn::Cleared)
+                this->cardReturns.at(p).at(i) = CardReturn::Returned;
 
     for (int i = 0; i < 12; ++i) this->RefreshMyHandSprite(i);
     this->RefreshTopScreen();
@@ -466,11 +523,41 @@ void GameParty::TickScoring()
 
 void GameParty::ResolveColumnClears(int playerIdx)
 {
-    (void)playerIdx;
-    // TODO: implement Skyjo column-clear rule — when 3 cards in the same
-    //       vertical column are revealed and identical, push all 3 to the
-    //       discard and mark the slots cleared. Current hand layout is 4
-    //       columns x 3 rows; slot i has column = i % 4, row = i / 4.
+    // Skyjo column-clear rule: when the 3 cards of a vertical column are all
+    // revealed and identical, the whole column is discarded and the slots are
+    // emptied. Hand layout is 4 columns x 3 rows; slot i has column = i % 4,
+    // row = i / 4, so column c is slots {c, c+4, c+8}.
+    auto& ret = this->cardReturns.at(playerIdx);
+    auto& deck = this->playerDeck.at(playerIdx);
+
+    for (int c = 0; c < 4; ++c)
+    {
+        int a = c, b = c + 4, d = c + 8;
+        if (ret.at(a) != CardReturn::Returned ||
+            ret.at(b) != CardReturn::Returned ||
+            ret.at(d) != CardReturn::Returned)
+            continue;
+        if (deck.at(a) != deck.at(b) || deck.at(b) != deck.at(d))
+            continue;
+
+        this->discardPile.push_back(deck.at(a));
+        this->discardPile.push_back(deck.at(b));
+        this->discardPile.push_back(deck.at(d));
+
+        ret.at(a) = CardReturn::Cleared;
+        ret.at(b) = CardReturn::Cleared;
+        ret.at(d) = CardReturn::Cleared;
+
+        if (playerIdx == 0)
+        {
+            this->RefreshMyHandSprite(a);
+            this->RefreshMyHandSprite(b);
+            this->RefreshMyHandSprite(d);
+        }
+        if (playerIdx == this->topScreenViewPlayerIdx)
+            this->RefreshTopScreen();
+        this->RefreshDiscardSprite();
+    }
 }
 
 bool GameParty::HandFullyRevealed(int playerIdx) const

@@ -34,6 +34,7 @@ class GameParty
         void RefreshMyHandSprite(int slot);
         void ResolveColumnClears(int playerIdx);
         bool HandFullyRevealed(int playerIdx) const;
+        void EndTurn(int playerIdx);
         void AdvanceToNextPlayer();
 
         std::vector<CardType> cardPreStack;
@@ -42,6 +43,7 @@ class GameParty
         NEA_Palette *NotPossibleIconPal;
 
         bool partyFirstTwoDraw;
+        bool awaitingDiscardReveal;
 
         NEA_Sprite *myPacket[12];
         NEA_Sprite *pullpacket[2];

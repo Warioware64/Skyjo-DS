@@ -20,6 +20,9 @@ namespace
             if (g.touchData.px >= r.x_min && g.touchData.px <= r.x_max &&
                 g.touchData.py >= r.y_min && g.touchData.py <= r.y_max)
             {
+                // A cleared (column-removed) slot is empty and cannot be acted on.
+                if (g.cardReturns.at(0).at(i) == CardReturn::Cleared)
+                    return std::nullopt;
                 return i;
             }
         }
@@ -55,22 +58,21 @@ HumanTouchController::ChooseStackAction(const GameParty& g, int playerIdx, CardT
     (void)drawn;
     if (!(g.keydown & KEY_TOUCH)) return std::nullopt;
 
+    // Touching the discard pile throws the drawn card away; the turn logic then
+    // forces the player to reveal one of their face-down cards. The slot field
+    // is unused for this action. Discarding requires a face-down card to flip,
+    // so it is only allowed while the player still has one — otherwise the tap
+    // is ignored and they must swap the card into their grid.
     if (InRect(g.touchData.px, g.touchData.py, kDiscardX0, kDiscardY0, kPullW, kPullH))
     {
-        waitingFlipOnlyDecision = true;
+        for (int i = 0; i < 12; ++i)
+            if (g.cardReturns.at(playerIdx).at(i) == CardReturn::Unreturned)
+                return StackAction{StackAction::Kind::FlipOnly, -1};
         return std::nullopt;
     }
 
     auto slot = TouchedHandSlot(g);
     if (!slot) return std::nullopt;
-
-    if (waitingFlipOnlyDecision)
-    {
-        if (g.cardReturns.at(playerIdx).at(*slot) == CardReturn::Returned)
-            return std::nullopt;
-        waitingFlipOnlyDecision = false;
-        return StackAction{StackAction::Kind::FlipOnly, *slot};
-    }
 
     return StackAction{StackAction::Kind::Replace, *slot};
 }

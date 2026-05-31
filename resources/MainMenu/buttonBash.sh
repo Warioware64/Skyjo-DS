@@ -173,3 +173,28 @@ echo >> $filePtxPath
 cat > $filePtxPath <<EOF
 -gt -og -v -cm 1024 -f tex4x4
 EOF
+
+
+
+buttonName="Discard"
+
+./generate_hex_button.py --label "DISCARD" --color "red" --output "./btns/${buttonName}.png" --out_w 64 --out_h 32 --font_size 8
+
+filePtxPath=./btns/${buttonName}.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+./generate_hex_button.py --label "DISCARD" --color "red" --pressed --output "./btns/${buttonName}Pressed.png" --out_w 64 --out_h 32 --font_size 8
+
+
+filePtxPath=./btns/${buttonName}Pressed.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
