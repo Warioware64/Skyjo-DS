@@ -95,3 +95,12 @@ constexpr std::array<CardPairs, 15> cardPackage = {{
                                             {CardType::Positive_12, 10}
                                         }};
 
+constexpr std::array<std::string, 7> CPUnames = {{
+    "Tom",
+    "Nina",
+    "Eric",
+    "Julia",
+    "Roger",
+    "Marie",
+    "Jake"
+}};

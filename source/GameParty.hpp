@@ -32,6 +32,7 @@ class GameParty
         void RefreshDiscardSprite();
         void RefreshTopScreen();
         void RefreshMyHandSprite(int slot);
+        void AnimateHandSprites();
         void ResolveColumnClears(int playerIdx);
         bool HandFullyRevealed(int playerIdx) const;
         void EndTurn(int playerIdx);
@@ -44,6 +45,11 @@ class GameParty
 
         bool partyFirstTwoDraw;
         bool awaitingDiscardReveal;
+
+        // Bottom-screen card animations (player 0 hand).
+        uint32_t animTick;
+        uint8_t popTimer[12];
+        uint8_t clearTimer[12];
 
         NEA_Sprite *myPacket[12];
         NEA_Sprite *pullpacket[2];

@@ -198,3 +198,16 @@ echo >> $filePtxPath
 cat > $filePtxPath <<EOF
 -gt -og -v -cm 1024 -f tex4x4
 EOF
+
+
+buttonName="DisplayNAME"
+
+./generate_hex_button.py --label "" --color "red" --output "./btns/${buttonName}.png" --out_w 64 --out_h 32 --font_size 8
+
+filePtxPath=./btns/${buttonName}.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gb -og -v -bt8 -cn -p 1
+EOF

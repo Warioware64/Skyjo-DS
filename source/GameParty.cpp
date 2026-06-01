@@ -2,12 +2,17 @@
 #include "globalHeader.hpp"
 #include "GamePartyClasses/HumanTouchController.hpp"
 #include "GamePartyClasses/CpuController.hpp"
+#include <NEAHw2D.h>
 
 
 namespace
 {
     constexpr int kHeldCardX = 60;
     constexpr int kHeldCardY = 60;
+
+    // Card animation tuning (frames at ~60fps).
+    constexpr int kPopFrames = 9;    // reveal/replace "pop"
+    constexpr int kClearFrames = 14; // column-clear fade-out
 }
 
 GameParty::GameParty()
@@ -52,6 +57,19 @@ void GameParty::GamePartyLogicRender()
     NEA_SpriteVisible(this->pullpacketIconNot[1], initPhase || mustSwap);
 
     NEA_SpriteVisible(this->heldCardSprite, this->heldCard.has_value());
+
+    ++this->animTick;
+    this->AnimateHandSprites();
+
+    // Held card gently pulses (scale + brightness) while a decision is pending.
+    if (this->heldCard.has_value())
+    {
+        float wave = sinLerp(degreesToAngle((this->animTick * 6) % 360)) / 4096.0f;
+        NEA_SpriteSetScale(this->heldCardSprite, 1.0f + 0.05f * wave);
+        NEA_SpriteSetParams(this->heldCardSprite,
+                            static_cast<u8>(26 + 5 * wave),
+                            this->heldCardSprite->id, this->heldCardSprite->color);
+    }
 
     if (initPhase)
     {
@@ -162,6 +180,8 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     this->partyFirstTwoDraw = true;
     this->awaitingDiscardReveal = false;
     this->phase = GamePhase::InitialReveal;
+    this->animTick = 0;
+    for (int i = 0; i < 12; ++i) { this->popTimer[i] = 0; this->clearTimer[i] = 0; }
     this->currentPlayerIndex = 0;
     this->startingPlayerIndex = 0;
     this->lastRoundTriggerPlayerIndex = std::nullopt;
@@ -178,6 +198,15 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     std::array<CardReturn, 12> unreturnedRow;
     unreturnedRow.fill(CardReturn::Unreturned);
     this->cardReturns.assign(number_arg, unreturnedRow);
+
+    /*
+    NEA_Hw2DOBJAsset *tempTEST = NEA_Hw2DOBJAssetCreate(NEA_ENGINE_SUB, NEA_OBJ_SIZE_64x32,  NEA_OBJ_COLOR_256);
+    NEA_Hw2DOBJAssetLoadGRFFAT(tempTEST, "mainmenu/btns/DisplayNAME_png.grf");
+    NEA_Hw2DOBJ *testTEMPCOPY = NEA_Hw2DOBJCreateFromAsset(tempTEST);
+    NEA_Hw2DOBJSetPriority(testTEMPCOPY, 3);
+    NEA_Hw2DOBJSetPos(testTEMPCOPY, 5, 5);
+    NEA_Hw2DOBJSetVisible(testTEMPCOPY, true);
+    */
 
     for (auto& hand : this->playerDeck)
     {
@@ -214,8 +243,8 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
         }
     }
 
-    x = 12;
-    y = 12;
+    x = 67;
+    y = 32;
 
     for (size_t i = 0; i < 12; i++)
     {
@@ -226,7 +255,7 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
         if (((i + 1) % 4 == 0) && ( i != 0))
         {
             y += 40;
-            x = 12;
+            x = 67;
         }
     }
 
@@ -267,6 +296,8 @@ void GameParty::RefreshMyHandSprite(int slot)
 {
     if (this->cardReturns.at(0).at(slot) == CardReturn::Cleared)
     {
+        // A clear fade-out owns the sprite until its timer expires.
+        if (this->clearTimer[slot] > 0) return;
         NEA_SpriteVisible(this->myPacket[slot], false);
         return;
     }
@@ -278,6 +309,43 @@ void GameParty::RefreshMyHandSprite(int slot)
     }
     NEA_SpriteSetMaterial(this->myPacket[slot], sharedAssetsGameParty.GetCardMat(mat));
     NEA_SpriteVisible(this->myPacket[slot], true);
+}
+
+void GameParty::AnimateHandSprites()
+{
+    // Only ever touch a sprite while it is actively animating, resetting it once
+    // when its timer ends. Cards that are not animating are left exactly as
+    // RefreshMyHandSprite set them, so an effect on one card never touches others.
+    for (int i = 0; i < 12; ++i)
+    {
+        NEA_Sprite* s = this->myPacket[i];
+
+        if (this->clearTimer[i] > 0)
+        {
+            // Shrink + fade the matched card, then hide the slot.
+            float progress = 1.0f - static_cast<float>(this->clearTimer[i]) / kClearFrames;
+            NEA_SpriteSetScale(s, 1.0f - 0.6f * progress);
+            NEA_SpriteSetParams(s, static_cast<u8>(31 - 27 * progress), s->id, s->color);
+            if (--this->clearTimer[i] == 0)
+            {
+                NEA_SpriteSetScale(s, 1.0f);
+                NEA_SpriteSetParams(s, 31, s->id, s->color);
+                NEA_SpriteVisible(s, false);
+            }
+        }
+        else if (this->popTimer[i] > 0)
+        {
+            // Scale down from a slight overshoot while fading in.
+            float progress = 1.0f - static_cast<float>(this->popTimer[i]) / kPopFrames;
+            NEA_SpriteSetScale(s, 1.25f - 0.25f * progress);
+            NEA_SpriteSetParams(s, static_cast<u8>(18 + 13 * progress), s->id, s->color);
+            if (--this->popTimer[i] == 0)
+            {
+                NEA_SpriteSetScale(s, 1.0f);
+                NEA_SpriteSetParams(s, 31, s->id, s->color);
+            }
+        }
+    }
 }
 
 void GameParty::RefreshDiscardSprite()
@@ -344,7 +412,7 @@ void GameParty::TickInitialReveal()
         this->cardReturns.at(p).at(*slot) = CardReturn::Returned;
         this->initialRevealCount[p]++;
 
-        if (p == 0) this->RefreshMyHandSprite(*slot);
+        if (p == 0) { this->RefreshMyHandSprite(*slot); this->popTimer[*slot] = kPopFrames; }
         if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
     }
 
@@ -388,7 +456,7 @@ void GameParty::TickTurn()
             if (!slot) return;
             if (this->cardReturns.at(p).at(*slot) != CardReturn::Unreturned) return;
             this->cardReturns.at(p).at(*slot) = CardReturn::Returned;
-            if (p == 0) this->RefreshMyHandSprite(*slot);
+            if (p == 0) { this->RefreshMyHandSprite(*slot); this->popTimer[*slot] = kPopFrames; }
             if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
             this->ResolveColumnClears(p);
         }
@@ -401,8 +469,11 @@ void GameParty::TickTurn()
     if (!this->drawSource)
     {
         auto src = ctrl.ChooseDrawSource(*this, this->currentPlayerIndex);
-        if (src) this->drawSource = src;
-        return;
+        if (!src) return;
+        this->drawSource = src;
+        // Fall through and grab the card this same frame: a separate "draw"
+        // frame would swallow a fast follow-up tap (keysDown is edge-triggered),
+        // making the next action silently fail.
     }
 
     if (!this->heldCard)
@@ -469,7 +540,7 @@ void GameParty::TickTurn()
         actedSlot = *slot;
     }
 
-    if (p == 0) this->RefreshMyHandSprite(actedSlot);
+    if (p == 0) { this->RefreshMyHandSprite(actedSlot); this->popTimer[actedSlot] = kPopFrames; }
     if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
     this->RefreshDiscardSprite();
     this->ResolveColumnClears(p);
@@ -550,9 +621,16 @@ void GameParty::ResolveColumnClears(int playerIdx)
 
         if (playerIdx == 0)
         {
-            this->RefreshMyHandSprite(a);
-            this->RefreshMyHandSprite(b);
-            this->RefreshMyHandSprite(d);
+            // Start the fade-out: keep the matched face visible and let
+            // AnimateHandSprites shrink/fade it before hiding the slot.
+            for (int s : {a, b, d})
+            {
+                NEA_SpriteSetMaterial(this->myPacket[s],
+                                      sharedAssetsGameParty.GetCardMat(deck.at(s)));
+                NEA_SpriteVisible(this->myPacket[s], true);
+                this->clearTimer[s] = kClearFrames;
+                this->popTimer[s] = 0;
+            }
         }
         if (playerIdx == this->topScreenViewPlayerIdx)
             this->RefreshTopScreen();
