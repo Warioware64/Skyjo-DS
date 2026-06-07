@@ -5,7 +5,7 @@
 #include "DebugPrint.hpp"
 #include "GamePartyClasses/GamePartySharedAssets.hpp"
 #include "GamePartyClasses/PlayerController.hpp"
-
+#include "Process.hpp"
 #include <memory>
 
 
@@ -88,6 +88,7 @@ class GameParty
         std::vector<CardReturnType> cardReturns;
         std::vector<CardType> cardStack;
         std::vector<CardType> discardPile;
+        std::vector<std::string> namePlayers;
 
         std::array<TouchPoseMyCard, 12> MyCardPos;
         uint32_t keydown;

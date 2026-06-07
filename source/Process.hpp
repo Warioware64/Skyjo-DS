@@ -19,7 +19,7 @@ class Process
         Process();
         ~Process();
 
-        
+        std::string consoleUserName;
 
         void CallInitializationOnePlayerParty(int cpu_number, CPULevel cpu_level);
 

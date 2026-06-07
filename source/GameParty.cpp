@@ -71,6 +71,7 @@ void GameParty::GamePartyLogicRender()
                             this->heldCardSprite->id, this->heldCardSprite->color);
     }
 
+
     if (initPhase)
     {
         NEA_RichTextRender3D(0, "Reveal two card \n", 120, 15);
@@ -82,6 +83,13 @@ void GameParty::GamePartyLogicRender()
     else if (mustSwap)
     {
         NEA_RichTextRender3D(0, "Place the card \n", 120, 15);
+    }
+    else 
+    {
+        NEA_RichTextRender3D(0, "<L", 10, 3);
+        //NEA_RichTextRender3D(0, ("<L"), 10, 3);
+        NEA_RichTextRender3D(0, "R>", 230, 1);
+        NEA_RichTextRender3D(0, this->namePlayers.at(this->topScreenViewPlayerIdx).c_str(), 120, 2);
     }
     NEA_SpriteDrawAll();
 }
@@ -207,6 +215,15 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     NEA_Hw2DOBJSetPos(testTEMPCOPY, 5, 5);
     NEA_Hw2DOBJSetVisible(testTEMPCOPY, true);
     */
+    this->namePlayers.resize(number_arg);
+    this->namePlayers.at(0) = process.consoleUserName;
+
+    std::vector<std::string> cpuPool(CPUnames.begin(), CPUnames.end());
+    std::mt19937 rngName{static_cast<std::mt19937::result_type>(time(nullptr))};
+    std::shuffle(cpuPool.begin(), cpuPool.end(), rngName);
+
+    for (int i = 1; i < number_arg; ++i)
+        this->namePlayers.at(i) = cpuPool.at(i - 1);
 
     for (auto& hand : this->playerDeck)
     {

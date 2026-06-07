@@ -58,6 +58,12 @@ void Process::ProcessInit()
         std::terminate();
     }
 
+    swiWaitForVBlank();
+    swiWaitForVBlank();
+    char name[50];
+    utf16_to_utf8(name, sizeof(name), (char16_t *)PersonalData->name,
+                    PersonalData->nameLen * sizeof(char16_t));
+    consoleUserName = name;
     DEBUG_PRINT("Enter into intro sequence");
 
     intro.LoadAssetsIntro();
