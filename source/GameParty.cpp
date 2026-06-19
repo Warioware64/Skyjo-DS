@@ -2,7 +2,9 @@
 #include "globalHeader.hpp"
 #include "GamePartyClasses/HumanTouchController.hpp"
 #include "GamePartyClasses/CpuController.hpp"
-#include <NEAHw2D.h>
+#include <NEAGUI.h>
+#include <NEAGeneral.h>
+
 
 
 namespace
@@ -39,10 +41,33 @@ void GameParty::GamePartyLogic()
     }
 }
 
+void GameParty::DestroyPauseMenuMain()
+{
+    NEA_GUIDeleteObject(this->ContinueButton);
+    NEA_GUIDeleteObject(this->QuitButton);
+}
+
+void GameParty::PauseMenuGUIlogic()
+{
+    if (this->pausephase == PausePhase::PauseMenuMain)
+    {
+        if ( (NEA_GUIObjectGetEvent(this->ContinueButton)) == NEA_Clicked)
+        {
+            this->DestroyPauseMenuMain();
+            this->StartMenu = false;
+        }
+    }
+}
 void GameParty::GamePartyLogicRender()
 {
     NEA_2DViewInit();
 
+    if (this->StartMenu)
+    {
+        NEA_RichTextRender3D(0, "PAUSE", 102, 35);
+        NEA_GUIDraw();
+        return;
+    }
     const bool initPhase = (this->phase == GamePhase::InitialReveal);
 
     // Discarding a stack-drawn card requires flipping a face-down card. When the
@@ -92,6 +117,24 @@ void GameParty::GamePartyLogicRender()
         NEA_RichTextRender3D(0, this->namePlayers.at(this->topScreenViewPlayerIdx).c_str(), 120, 2);
     }
     NEA_SpriteDrawAll();
+
+
+}
+
+void GameParty::InitPauseMenuGUIbutton()
+{
+    this->ContinueButton = NEA_GUIButtonCreate( 57, 60,
+                                                57 + 128, 60 + 32);
+    this->QuitButton =  NEA_GUIButtonCreate( 57, 103,
+                                            57 + 128, 103 + 32);
+
+    NEA_GUIButtonConfig(this->ContinueButton,
+         this->ContinueButtonMat, NEA_White, 31,
+        this->ContinueButtonPressedMat, NEA_White, 31);
+    
+    NEA_GUIButtonConfig(this->QuitButton,
+         this->QuitButtonMat, NEA_White, 31,
+        this->QuitButtonPressedMat, NEA_White, 31);    
 }
 
 void GameParty::LoadGamePartyAssets()
@@ -99,6 +142,66 @@ void GameParty::LoadGamePartyAssets()
     {
         std::terminate();
     }
+
+    this->ContinueButtonMat = NEA_MaterialCreate();
+    this->ContinueButtonPal = NEA_PaletteCreate();
+    this->ContinueButtonPressedMat = NEA_MaterialCreate();
+    this->ContinueButtonPressedPal = NEA_PaletteCreate();
+
+    this->QuitButtonMat = NEA_MaterialCreate();
+    this->QuitButtonPal = NEA_PaletteCreate();
+    this->QuitButtonPressedMat = NEA_MaterialCreate();
+    this->QuitButtonPressedPal = NEA_PaletteCreate();
+
+    this->YesButtonMat = NEA_MaterialCreate();
+    this->YesButtonPal = NEA_PaletteCreate();
+    this->YesButtonPressedMat = NEA_MaterialCreate();
+    this->YesButtonPressedPal = NEA_PaletteCreate();
+
+    this->NoButtonMat = NEA_MaterialCreate();
+    this->NoButtonPal = NEA_PaletteCreate();
+    this->NoButtonPressedMat = NEA_MaterialCreate();
+    this->NoButtonPressedPal = NEA_PaletteCreate();
+
+    NEA_MaterialTexLoadGRF(this->ContinueButtonMat,
+                            this->ContinueButtonPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/ResumeButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->ContinueButtonPressedMat,
+                            this->ContinueButtonPressedPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/ResumeButtonPressed_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->QuitButtonMat,
+                            this->QuitButtonPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/QuitButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->QuitButtonPressedMat,
+                            this->QuitButtonPressedPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/QuitButtonPressed_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->NoButtonMat,
+                            this->NoButtonPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/NoButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->NoButtonPressedMat,
+                            this->NoButtonPressedPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/NoButtonPressed_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->YesButtonMat,
+                            this->YesButtonPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/YesButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->YesButtonPressedMat,
+                            this->YesButtonPressedPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/YesButtonPressed_png.grf");
 
     for (int n = static_cast<int>(CardType::Negative_2); n <= static_cast<int>(CardType::Positive_12); ++n)
     {
@@ -186,6 +289,7 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     this->partyType = party_arg;
     this->playerCount = number_arg;
     this->partyFirstTwoDraw = true;
+    this->StartMenu = false;
     this->awaitingDiscardReveal = false;
     this->phase = GamePhase::InitialReveal;
     this->animTick = 0;
@@ -671,11 +775,33 @@ void GameParty::RenderGameParty()
 {
     while (1)
     {
-        NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D));
+        if (this->StartMenu)
+        {
+            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D | NEA_UPDATE_GUI));
+            this->PauseMenuGUIlogic();
+        }
+        else 
+        {
+            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D));
+        }    
+        
         scanKeys();
         this->keydown = keysDown();
         touchRead(&this->touchData);
-        this->GamePartyLogic();
+        if (!this->StartMenu)
+        {
+            if (this->keydown & KEY_START)
+            {
+                this->pausephase = PausePhase::PauseMenuMain;
+                this->StartMenu = true;
+                this->InitPauseMenuGUIbutton();
+            }
+            else 
+            {
+                this->GamePartyLogic();
+            }
+        }
+
 
         NEA_Process([](){
             gameparty.GamePartyLogicRender();

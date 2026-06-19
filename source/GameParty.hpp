@@ -6,6 +6,7 @@
 #include "GamePartyClasses/GamePartySharedAssets.hpp"
 #include "GamePartyClasses/PlayerController.hpp"
 #include "Process.hpp"
+#include <NEAGUI.h>
 #include <memory>
 
 
@@ -16,11 +17,20 @@ typedef struct
     int x_min, x_max, y_min, y_max;
 } TouchPoseMyCard;
 
+enum class PausePhase
+{
+    PauseMenuMain,
+    QuitMenu
+};
+
 class GameParty
 {
     private:
         void GamePartyLogic();
+        void DestroyPauseMenuMain();
+        void PauseMenuGUIlogic();
         void GamePartyLogicRender();
+        void InitPauseMenuGUIbutton();
         void LoadGamePartyAssets();
         void InitCardStack();
 
@@ -39,6 +49,30 @@ class GameParty
         void AdvanceToNextPlayer();
 
         std::vector<CardType> cardPreStack;
+
+        NEA_Material *ContinueButtonMat;
+        NEA_Palette *ContinueButtonPal;
+        NEA_Material *ContinueButtonPressedMat;
+        NEA_Palette *ContinueButtonPressedPal;
+        NEA_GUIObj *ContinueButton;
+
+        NEA_Material *QuitButtonMat;
+        NEA_Palette *QuitButtonPal;
+        NEA_Material *QuitButtonPressedMat;
+        NEA_Palette *QuitButtonPressedPal;
+        NEA_GUIObj *QuitButton;
+
+        NEA_Material *YesButtonMat;
+        NEA_Palette *YesButtonPal;
+        NEA_Material *YesButtonPressedMat;
+        NEA_Palette *YesButtonPressedPal;
+        NEA_GUIObj *YesButton;
+
+        NEA_Material *NoButtonMat;
+        NEA_Palette *NoButtonPal;
+        NEA_Material *NoButtonPressedMat;
+        NEA_Palette *NoButtonPressedPal;
+        NEA_GUIObj *NoButton;
 
         NEA_Material *NotPossibleIconMat;
         NEA_Palette *NotPossibleIconPal;
@@ -76,6 +110,9 @@ class GameParty
 
         int topScreenViewPlayerIdx;
         uint32_t prevKeydown;
+
+        bool StartMenu;
+        PausePhase pausephase;
 
     public:
         GameParty();

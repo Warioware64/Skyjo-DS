@@ -211,3 +211,96 @@ echo >> $filePtxPath
 cat > $filePtxPath <<EOF
 -gb -og -v -bt8 -cn -p 1
 EOF
+
+
+buttonName="ResumeButton"
+
+./generate_hex_button.py --label "RESUME" --output "./btns/${buttonName}.png"
+
+filePtxPath=./btns/${buttonName}.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+./generate_hex_button.py --label "RESUME" --pressed --output "./btns/${buttonName}Pressed.png"
+
+
+filePtxPath=./btns/${buttonName}Pressed.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+
+buttonName="QuitButton"
+
+./generate_hex_button.py --label "QUIT" --color "red" --output "./btns/${buttonName}.png"
+
+filePtxPath=./btns/${buttonName}.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+./generate_hex_button.py --label "QUIT" --color "red" --pressed --output "./btns/${buttonName}Pressed.png"
+
+
+filePtxPath=./btns/${buttonName}Pressed.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+
+buttonName="YesButton"
+
+./generate_hex_button.py --label "YES" --color green --output "./btns/${buttonName}.png" --out_w 64 --out_h 32 --font_size 10
+
+filePtxPath=./btns/${buttonName}.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+./generate_hex_button.py --label "YES" --color green --pressed --output "./btns/${buttonName}Pressed.png" --out_w 64 --out_h 32 --font_size 10
+
+filePtxPath=./btns/${buttonName}Pressed.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+buttonName="NoButton"
+
+./generate_hex_button.py --label "NO" --color red --output "./btns/${buttonName}.png" --out_w 64 --out_h 32 --font_size 10
+
+filePtxPath=./btns/${buttonName}.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+./generate_hex_button.py --label "NO" --color red --pressed --output "./btns/${buttonName}Pressed.png" --out_w 64 --out_h 32 --font_size 10
+
+filePtxPath=./btns/${buttonName}Pressed.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
