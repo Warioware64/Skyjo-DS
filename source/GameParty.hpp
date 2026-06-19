@@ -6,6 +6,7 @@
 #include "GamePartyClasses/GamePartySharedAssets.hpp"
 #include "GamePartyClasses/PlayerController.hpp"
 #include "Process.hpp"
+#include "MainMenu.hpp"
 #include <NEAGUI.h>
 #include <memory>
 
@@ -37,6 +38,7 @@ class GameParty
         void GamePartyLogicRender();
         void InitPauseMenuGUIbutton();
 
+        void UnloadGamePartyAssets();
         void LoadGamePartyAssets();
         void InitCardStack();
 
@@ -55,6 +57,9 @@ class GameParty
         void AdvanceToNextPlayer();
 
         std::vector<CardType> cardPreStack;
+
+        NEA_Hw2DBG *hexBGtop;
+        NEA_Hw2DBG *hexBGbot;
 
         NEA_Material *ContinueButtonMat;
         NEA_Palette *ContinueButtonPal;
@@ -118,6 +123,7 @@ class GameParty
         uint32_t prevKeydown;
 
         bool StartMenu;
+        bool Quited;
         PausePhase pausephase;
 
     public:

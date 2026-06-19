@@ -8,6 +8,7 @@
 
 class Process
 {
+    friend GameParty;
     private:
         ClassStates classstates;
         MenusStates menustates;

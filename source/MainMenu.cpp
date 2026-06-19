@@ -84,9 +84,61 @@ void MainMenu::SCREEN_BOTTOM()
 
 void MainMenu::LoadAssetsMainMenu()
 {
+    // Reset the menu back to the title screen on every (re)entry. When the menu
+    // is re-loaded after quitting a game party it is otherwise left in the
+    // TransitionToPlayOnePlayer state, which renders nothing and handles no
+    // input -> a dead screen.
+    if (!this->bypassableChangeMenuStates)
+    {
+        // Normal (re)entry: start on the title screen.
+        this->mainmenustates = MainMenuStates::MainTitle;
+        this->canTouchDetect = false;
+        this->triggerCanTouchDetect = false;
+        this->frameTouchDetect = 0;
+
+        this->hexBGtop = NEA_Hw2DBGCreate(NEA_ENGINE_MAIN, 1,
+                                        NEA_HW2D_BG_TILED_8BPP, 256, 256);
+        NEA_Hw2DBGSetPriority(this->hexBGtop, 3);
+
+        NEA_Hw2DBGLoadGRFFAT(this->hexBGtop, "mainmenu/hex_background2_png.grf", 0);
+        NEA_Hw2DBGSetVisible(this->hexBGtop, true);
+
+        this->hexBGbot = NEA_Hw2DBGCreate(NEA_ENGINE_SUB, 0,
+                                           NEA_HW2D_BG_TILED_8BPP, 256, 256);
+        NEA_Hw2DBGSetPriority(this->hexBGbot, 3);
+        NEA_Hw2DBGLoadGRFFAT(this->hexBGbot, "mainmenu/hex_background_png.grf", 1);
+
+        NEA_Hw2DBGSetVisible(this->hexBGbot, true);
+    }
+    else
+    {
+        // Bypass (re)entry that lands directly on a sub-menu, e.g. quitting a
+        // game back to the party-setup screen. The per-state asset load
+        // normally happens at the fade apex in RenderMainMenu(); this path
+        // skips it, so load the current state's assets here. Arm touch
+        // detection via the usual 20-frame debounce since there is no state
+        // transition to trigger it (and the debounce swallows the lingering
+        // quit-button touch).
+        switch (this->mainmenustates)
+        {
+            case MainMenuStates::MainSelectionMenu:
+                this->mainSelec.LoadAssetsMainSelectionMenu(); break;
+            case MainMenuStates::PlaySelectionMenu:
+                this->playSelec.LoadAssetsPlaySelectionMenu(); break;
+            case MainMenuStates::OnePlayerPartyStart:
+                this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
+            default: break;
+        }
+        this->canTouchDetect = false;
+        this->triggerCanTouchDetect = true;
+        this->frameTouchDetect = 0;
+        this->bypassableChangeMenuStates = false; // one-shot
+    }
+
     this->brightness = 16;
     this->frameTrigger = 0;
     this->triggerPlayPartyOnePlayer = false;
+    
     this->fadePhase = FadePhase::FadingIn;
     this->fadeStepInterval = 5;
     this->pendingNextState.reset();
@@ -119,23 +171,28 @@ void MainMenu::LoadAssetsMainMenu()
     // Hex background as a hardware 2D BG on each engine.
     // Layer 1 on main (layer 0 is reserved for 3D output); priority 3 puts
     // it behind the 3D layer so text submitted as a 3D quad renders above.
-    this->hexBGtop = NEA_Hw2DBGCreate(NEA_ENGINE_MAIN, 1,
-                                       NEA_HW2D_BG_TILED_8BPP, 256, 256);
-    NEA_Hw2DBGSetPriority(this->hexBGtop, 3);
 
-    NEA_Hw2DBGLoadGRFFAT(this->hexBGtop, "mainmenu/hex_background2_png.grf", 0);
-    NEA_Hw2DBGSetVisible(this->hexBGtop, true);
-
-    this->hexBGbot = NEA_Hw2DBGCreate(NEA_ENGINE_SUB, 0,
-                                       NEA_HW2D_BG_TILED_8BPP, 256, 256);
-    NEA_Hw2DBGSetPriority(this->hexBGbot, 3);
-    NEA_Hw2DBGLoadGRFFAT(this->hexBGbot, "mainmenu/hex_background_png.grf", 1);
-
-    NEA_Hw2DBGSetVisible(this->hexBGbot, true);
 
     // Per-screen materials/palettes are created in each sub-menu's own
     // LoadAssets* and freed in the matching UnloadAssets* — creating them
     // here once would leave dangling handles after the first Unload.
+}
+
+// Symmetric teardown for LoadAssetsMainMenu(). Must run before leaving the menu
+// (e.g. when launching a game party); otherwise the hardware BG layers stay
+// occupied and the next LoadAssetsMainMenu() re-creates them over the live
+// originals, getting NULL from NEA_Hw2DBGCreate -> data abort. Mirrors the
+// Intro::UnloadAssetsIntro() pattern. Delete in reverse creation order.
+void MainMenu::UnloadAssetsMainMenu()
+{
+    //NEA_Hw2DBGDelete(this->hexBGbot);
+    //NEA_Hw2DBGDelete(this->hexBGtop);
+
+    NEA_ParticleEmitterDelete(this->hexEmit);
+    NEA_MaterialDelete(this->hexParMat);
+    NEA_PaletteDelete(this->hexParPal);
+
+    NEA_CameraDelete(this->emitCam);
 }
 
 void MainMenu::ProcessLogicMainTitle()
@@ -308,6 +365,10 @@ void MainMenu::RenderMainMenu()
 
     if (this->triggerPlayPartyOnePlayer)
     {
+        // Tear the menu down before handing off to the game party so its BG
+        // layers / camera / particle assets are freed; the matching reload on
+        // quit then starts from a clean slate.
+        this->UnloadAssetsMainMenu();
         process.CallInitializationOnePlayerParty(this->onePlayerParty.Get_player_number(),
                                                  this->onePlayerParty.Get_CPULevel());
     }

@@ -1,4 +1,6 @@
 #include "GameParty.hpp"
+#include "MainMenu.hpp"
+#include "MainMenuClasses/MainMenuStates.hpp"
 #include "globalHeader.hpp"
 #include "GamePartyClasses/HumanTouchController.hpp"
 #include "GamePartyClasses/CpuController.hpp"
@@ -95,7 +97,17 @@ void GameParty::PauseMenuGUIlogic()
             this->DestroyQuitMenu();
             this->pausephase = PausePhase::PauseMenuMain;
             this->InitPauseMenuGUIbutton();
-        }        
+        }
+        
+        if ( (NEA_GUIObjectGetEvent(this->YesButton)) == NEA_Clicked)
+        {
+            this->DestroyQuitMenu();
+            this->UnloadGamePartyAssets();
+            this->Quited = true;
+            mainmenu.mainmenustates = MainMenuStates::OnePlayerPartyStart;
+            mainmenu.bypassableChangeMenuStates = true;
+
+        } 
     }
 }
 void GameParty::GamePartyLogicRender()
@@ -189,12 +201,87 @@ void GameParty::InitPauseMenuGUIbutton()
         this->QuitButtonPressedMat, NEA_White, 31);    
 }
 
+void GameParty::UnloadGamePartyAssets()
+{
+    // Tear down in reverse dependency order: live instances (sprites + OBJs)
+    // must go before the assets they reference. NEA_Hw2DOBJAssetDelete() is a
+    // silent no-op while any OBJ is still bound, so deleting the viewGame[]
+    // instances first is what actually frees the card OBJ assets from VRAM.
+    // Leaving them alive also let MainMenu's HW2D update walk dangling OBJs
+    // after teardown -> data abort.
+    NEA_SpriteDeleteAll();
+    //NEA_Hw2DBGDelete(this->hexBGbot);
+    //NEA_Hw2DBGDelete(this->hexBGtop);
+
+    for (int i = 0; i < 12; ++i)
+        NEA_Hw2DOBJDelete(this->viewGame[i]);
+
+    NEA_MaterialDelete(this->ContinueButtonMat);
+    NEA_MaterialDelete(this->ContinueButtonPressedMat);
+
+    NEA_MaterialDelete(this->QuitButtonMat);
+    NEA_MaterialDelete(this->QuitButtonPressedMat);
+
+    NEA_MaterialDelete(this->YesButtonMat);
+    NEA_MaterialDelete(this->YesButtonPressedMat);
+
+    NEA_MaterialDelete(this->NoButtonMat);
+    NEA_MaterialDelete(this->NoButtonPressedMat);
+
+
+
+
+
+    NEA_PaletteDelete(this->ContinueButtonPal);
+    NEA_PaletteDelete(this->ContinueButtonPressedPal);
+
+    NEA_PaletteDelete(this->QuitButtonPal);
+    NEA_PaletteDelete(this->QuitButtonPressedPal);
+
+    NEA_PaletteDelete(this->YesButtonPal);
+    NEA_PaletteDelete(this->YesButtonPressedPal);
+
+    NEA_PaletteDelete(this->NoButtonPal);
+    NEA_PaletteDelete(this->NoButtonPressedPal);
+
+    for (int n = static_cast<int>(CardType::Negative_2); n <= static_cast<int>(CardType::Positive_12); ++n)
+    {
+        CardType i = static_cast<CardType>(n);
+
+        NEA_MaterialDelete(sharedAssetsGameParty.GetCardMat(i));
+        NEA_PaletteDelete(sharedAssetsGameParty.GetCardPal(i));
+        NEA_Hw2DOBJAssetDelete(sharedAssetsGameParty.GetCardOBJ(i));
+
+    }
+
+    NEA_MaterialDelete(sharedAssetsGameParty.GetCardMat(std::nullopt));
+    NEA_PaletteDelete(sharedAssetsGameParty.GetCardPal(std::nullopt));
+    NEA_Hw2DOBJAssetDelete(sharedAssetsGameParty.GetCardOBJ(std::nullopt));
+
+    NEA_MaterialDelete(this->NotPossibleIconMat);
+    NEA_PaletteDelete(this->NotPossibleIconPal);
+}
+
 void GameParty::LoadGamePartyAssets()
 {   if (!(NEA_Hw2DGetClaimedBanks() & NEA_VRAM_D))
     {
         std::terminate();
     }
+    /*
+    this->hexBGtop = NEA_Hw2DBGCreate(NEA_ENGINE_MAIN, 1,
+                                       NEA_HW2D_BG_TILED_8BPP, 256, 256);
+    NEA_Hw2DBGSetPriority(this->hexBGtop, 3);
 
+    NEA_Hw2DBGLoadGRFFAT(this->hexBGtop, "mainmenu/hex_background2_png.grf", 0);
+    NEA_Hw2DBGSetVisible(this->hexBGtop, true);
+
+    this->hexBGbot = NEA_Hw2DBGCreate(NEA_ENGINE_SUB, 0,
+                                       NEA_HW2D_BG_TILED_8BPP, 256, 256);
+    NEA_Hw2DBGSetPriority(this->hexBGbot, 3);
+    NEA_Hw2DBGLoadGRFFAT(this->hexBGbot, "mainmenu/hex_background_png.grf", 1);
+
+    NEA_Hw2DBGSetVisible(this->hexBGbot, true);
+    */
     this->ContinueButtonMat = NEA_MaterialCreate();
     this->ContinueButtonPal = NEA_PaletteCreate();
     this->ContinueButtonPressedMat = NEA_MaterialCreate();
@@ -340,6 +427,7 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     this->cpuLevel = cpu_arg;
     this->partyType = party_arg;
     this->playerCount = number_arg;
+    this->Quited = false;
     this->partyFirstTwoDraw = true;
     this->StartMenu = false;
     this->awaitingDiscardReveal = false;
@@ -831,6 +919,12 @@ void GameParty::RenderGameParty()
         {
             NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D | NEA_UPDATE_GUI));
             this->PauseMenuGUIlogic();
+            if (this->Quited)
+            {
+                process.classstates = ClassStates::Init;
+                process.menustates = MenusStates::MainMenu;
+                break;
+            }
         }
         else 
         {
@@ -853,6 +947,7 @@ void GameParty::RenderGameParty()
                 this->GamePartyLogic();
             }
         }
+
 
 
         NEA_Process([](){

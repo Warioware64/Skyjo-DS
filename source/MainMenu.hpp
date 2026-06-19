@@ -1,8 +1,10 @@
 #pragma once
 
 
+#include "GameParty.hpp"
 #include "globalHeader.hpp"
 #include "Process.hpp"
+#include "GameParty.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
 #include "MainMenuClasses/MainSelectionMenu.hpp"
 #include "MainMenuClasses/PlaySelectionMenu.hpp"
@@ -11,7 +13,7 @@
 
 class MainMenu
 {
-    //friend class Process;
+    friend GameParty;
     private:
         enum class FadePhase { None, FadingOut, FadingIn };
 
@@ -48,7 +50,7 @@ class MainMenu
         bool triggerPlayPartyOnePlayer = false;
 
 
-
+        bool bypassableChangeMenuStates = false;
         int showOrNotTouchScreenText = 1;
         int frameTouchDetect = 0;
         bool triggerCanTouchDetect = false;
@@ -70,6 +72,7 @@ class MainMenu
         ~MainMenu();
 
         void LoadAssetsMainMenu();
+        void UnloadAssetsMainMenu();
         void RenderMainMenu();
 };
 
