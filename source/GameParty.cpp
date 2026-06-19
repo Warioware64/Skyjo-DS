@@ -41,6 +41,28 @@ void GameParty::GamePartyLogic()
     }
 }
 
+void GameParty::DestroyQuitMenu()
+{
+    NEA_GUIDeleteObject(this->YesButton);
+    NEA_GUIDeleteObject(this->NoButton);
+}
+
+void GameParty::InitQuitMenu()
+{
+    this->YesButton = NEA_GUIButtonCreate( 89, 60,
+                                                89 + 64, 60 + 32);
+    this->NoButton =  NEA_GUIButtonCreate( 89, 103,
+                                            89 + 64, 103 + 32);
+
+    NEA_GUIButtonConfig(this->YesButton,
+         this->YesButtonMat, NEA_White, 31,
+        this->YesButtonPressedMat, NEA_White, 31);
+    
+    NEA_GUIButtonConfig(this->NoButton,
+         this->NoButtonMat, NEA_White, 31,
+        this->NoButtonPressedMat, NEA_White, 31);   
+}
+
 void GameParty::DestroyPauseMenuMain()
 {
     NEA_GUIDeleteObject(this->ContinueButton);
@@ -54,8 +76,26 @@ void GameParty::PauseMenuGUIlogic()
         if ( (NEA_GUIObjectGetEvent(this->ContinueButton)) == NEA_Clicked)
         {
             this->DestroyPauseMenuMain();
+            this->RefreshTopScreen();
             this->StartMenu = false;
         }
+        
+        if ( (NEA_GUIObjectGetEvent(this->QuitButton)) == NEA_Clicked)
+        {
+            this->pausephase = PausePhase::QuitMenu;
+            this->DestroyPauseMenuMain();
+            this->InitQuitMenu();
+            
+        }
+    }
+    else if (this->pausephase == PausePhase::QuitMenu)
+    {
+        if ( (NEA_GUIObjectGetEvent(this->NoButton)) == NEA_Clicked)
+        {
+            this->DestroyQuitMenu();
+            this->pausephase = PausePhase::PauseMenuMain;
+            this->InitPauseMenuGUIbutton();
+        }        
     }
 }
 void GameParty::GamePartyLogicRender()
@@ -64,7 +104,15 @@ void GameParty::GamePartyLogicRender()
 
     if (this->StartMenu)
     {
-        NEA_RichTextRender3D(0, "PAUSE", 102, 35);
+        if (this->pausephase == PausePhase::PauseMenuMain)
+        {
+            NEA_RichTextRender3D(0, "PAUSE", 102, 35);
+        }
+        else if (this->pausephase == PausePhase::QuitMenu)
+        {
+            NEA_RichTextRender3D(0, "ARE YOU SURE TO QUIT ?", 52, 35);
+        }
+        
         NEA_GUIDraw();
         return;
     }
@@ -123,6 +171,10 @@ void GameParty::GamePartyLogicRender()
 
 void GameParty::InitPauseMenuGUIbutton()
 {
+    for (int i = 0; i < 12; ++i)
+    {
+        NEA_Hw2DOBJSetVisible(this->viewGame[i], false);
+    }
     this->ContinueButton = NEA_GUIButtonCreate( 57, 60,
                                                 57 + 128, 60 + 32);
     this->QuitButton =  NEA_GUIButtonCreate( 57, 103,

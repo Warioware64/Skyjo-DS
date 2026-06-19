@@ -27,10 +27,16 @@ class GameParty
 {
     private:
         void GamePartyLogic();
+
+        void DestroyQuitMenu();
+        void InitQuitMenu();
+
         void DestroyPauseMenuMain();
         void PauseMenuGUIlogic();
+
         void GamePartyLogicRender();
         void InitPauseMenuGUIbutton();
+
         void LoadGamePartyAssets();
         void InitCardStack();
 
