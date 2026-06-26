@@ -109,6 +109,15 @@ void MainMenu::LoadAssetsMainMenu()
     // is re-loaded after quitting a game party it is otherwise left in the
     // TransitionToPlayOnePlayer state, which renders nothing and handles no
     // input -> a dead screen.
+    std::filesystem::path save_party(process.fatDeviceCPP + "_nds/SkyjoDS/save_party.dat");
+    if ( std::filesystem::exists(save_party) && std::filesystem::is_regular_file(save_party))
+    {
+        this->mainSelec.resumableParty = true;
+    }
+    else 
+    {
+        this->mainSelec.resumableParty = false;
+    }
     if (!this->bypassableChangeMenuStates)
     {
         // Normal (re)entry: start on the title screen.

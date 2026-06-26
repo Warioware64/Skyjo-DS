@@ -15,7 +15,15 @@ class MainSelectionMenu
         NEA_Palette *SettingsPal[2];
 
         NEA_GUIObj *SettingsButton;
+
+        NEA_Material *ResumeMat[2];
+        NEA_Palette *ResumePal[2];
+
+        NEA_GUIObj *ResumeButton;
     public:
+        bool resumableParty = false;
+
+
         void LoadAssetsMainSelectionMenu();
         void UnloadAssetsMainSelectionMenu();
         std::optional<MainMenuStates> ProcessLogicMainSelectionMenu();

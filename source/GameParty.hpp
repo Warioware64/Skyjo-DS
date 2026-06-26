@@ -23,7 +23,8 @@ struct TouchPoseMyCard
 enum class PausePhase
 {
     PauseMenuMain,
-    QuitMenu
+    QuitMenu,
+    SaveMenu
 };
 
 class GameParty
@@ -103,6 +104,12 @@ class GameParty
         NEA_Material *ExitButtonPressedMat;
         NEA_Palette *ExitButtonPressedPal;
         NEA_GUIObj *ExitButton;
+
+        NEA_Material *SaveButtonMat;
+        NEA_Palette *SaveButtonPal;
+        NEA_Material *SaveButtonPressedMat;
+        NEA_Palette *SaveButtonPressedPal;
+        NEA_GUIObj *SaveButton;
 
         NEA_Material *NotPossibleIconMat;
         NEA_Palette *NotPossibleIconPal;

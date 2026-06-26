@@ -69,6 +69,7 @@ void GameParty::DestroyPauseMenuMain()
 {
     NEA_GUIDeleteObject(this->ContinueButton);
     NEA_GUIDeleteObject(this->QuitButton);
+    NEA_GUIDeleteObject(this->SaveButton);
 }
 
 void GameParty::PauseMenuGUIlogic()
@@ -81,10 +82,16 @@ void GameParty::PauseMenuGUIlogic()
             this->RefreshTopScreen();
             this->StartMenu = false;
         }
-        
-        if ( (NEA_GUIObjectGetEvent(this->QuitButton)) == NEA_Clicked)
+        else if ( (NEA_GUIObjectGetEvent(this->QuitButton)) == NEA_Clicked)
         {
             this->pausephase = PausePhase::QuitMenu;
+            this->DestroyPauseMenuMain();
+            this->InitQuitMenu();
+            
+        }
+        else if ( (NEA_GUIObjectGetEvent(this->SaveButton)) == NEA_Clicked)
+        {
+            this->pausephase = PausePhase::SaveMenu;
             this->DestroyPauseMenuMain();
             this->InitQuitMenu();
             
@@ -118,6 +125,37 @@ void GameParty::PauseMenuGUIlogic()
 
         } 
     }
+    else if (this->pausephase == PausePhase::SaveMenu)
+    {
+        if ( (NEA_GUIObjectGetEvent(this->NoButton)) == NEA_Clicked)
+        {
+            this->DestroyQuitMenu();
+            this->pausephase = PausePhase::PauseMenuMain;
+            this->InitPauseMenuGUIbutton();
+        }
+        
+        if ( (NEA_GUIObjectGetEvent(this->YesButton)) == NEA_Clicked)
+        {
+            this->DestroyQuitMenu();
+            this->UnloadGamePartyAssets();
+            this->Quited = true;
+            mainmenu.mainmenustates = MainMenuStates::MainSelectionMenu;
+            mainmenu.bypassableChangeMenuStates = true;
+            
+            constexpr std::size_t yasSaveFlag = yas::file | yas::binary | yas::no_header;
+            std::filesystem::path save_party(process.fatDeviceCPP + "_nds/SkyjoDS/save_party.dat");
+            if ( std::filesystem::exists(save_party) && std::filesystem::is_regular_file(save_party))
+            {
+                std::filesystem::remove(save_party);
+            }
+            yas::file_ostream yasSaveOutput(save_party.c_str());
+            // yas has no serializer for std::filesystem::path; serialize a string.
+            //std::string test_payload = test_file.string();
+            yas::save<yasSaveFlag>(yasSaveOutput, gameparty);
+            yasSaveOutput.flush();
+            
+        } 
+    }
 }
 void GameParty::GamePartyLogicRender()
 {
@@ -132,6 +170,10 @@ void GameParty::GamePartyLogicRender()
         else if (this->pausephase == PausePhase::QuitMenu)
         {
             NEA_RichTextRender3D(0, "ARE YOU SURE TO QUIT ?", 52, 35);
+        }
+        else if (this->pausephase == PausePhase::SaveMenu)
+        {
+            NEA_RichTextRender3D(0, "ARE YOU SURE TO SAVE AND QUIT ?", 22, 35);
         }
         
         NEA_GUIDraw();
@@ -226,7 +268,8 @@ void GameParty::InitPauseMenuGUIbutton()
                                                 57 + 128, 60 + 32);
     this->QuitButton =  NEA_GUIButtonCreate( 57, 103,
                                             57 + 128, 103 + 32);
-
+    this->SaveButton =  NEA_GUIButtonCreate( 57, 146,
+                                            57 + 128, 146 + 32);
     NEA_GUIButtonConfig(this->ContinueButton,
          this->ContinueButtonMat, NEA_White, 31,
         this->ContinueButtonPressedMat, NEA_White, 31);
@@ -234,6 +277,10 @@ void GameParty::InitPauseMenuGUIbutton()
     NEA_GUIButtonConfig(this->QuitButton,
          this->QuitButtonMat, NEA_White, 31,
         this->QuitButtonPressedMat, NEA_White, 31);
+
+    NEA_GUIButtonConfig(this->SaveButton,
+        this->SaveButtonMat, NEA_White, 31,
+        this->SaveButtonPressedMat, NEA_White, 31);
 }
 
 void GameParty::ComputeFinalScores()
@@ -278,12 +325,15 @@ void GameParty::InitEndGameMenu()
     NEA_GUIButtonConfig(this->ExitButton,
          this->ExitButtonMat, NEA_White, 31,
         this->ExitButtonPressedMat, NEA_White, 31);
+    
+
 }
 
 void GameParty::DestroyEndGameMenu()
 {
     NEA_GUIDeleteObject(this->ReplayButton);
     NEA_GUIDeleteObject(this->ExitButton);
+    //NEA_GUIDeleteObject(this->SaveButton);
 }
 
 void GameParty::EndGameGUIlogic()
@@ -323,6 +373,9 @@ void GameParty::UnloadGamePartyAssets()
     for (int i = 0; i < 12; ++i)
         NEA_Hw2DOBJDelete(this->viewGame[i]);
 
+    NEA_MaterialDelete(this->SaveButtonMat);
+    NEA_MaterialDelete(this->SaveButtonPressedMat);
+
     NEA_MaterialDelete(this->ContinueButtonMat);
     NEA_MaterialDelete(this->ContinueButtonPressedMat);
 
@@ -356,6 +409,9 @@ void GameParty::UnloadGamePartyAssets()
 
     NEA_PaletteDelete(this->ReplayButtonPal);
     NEA_PaletteDelete(this->ReplayButtonPressedPal);
+
+    NEA_PaletteDelete(this->SaveButtonPal);
+    NEA_PaletteDelete(this->SaveButtonPressedPal);
 
     NEA_PaletteDelete(this->ExitButtonPal);
     NEA_PaletteDelete(this->ExitButtonPressedPal);
@@ -468,6 +524,11 @@ void GameParty::LoadGamePartyAssets()
     this->ExitButtonPressedMat = NEA_MaterialCreate();
     this->ExitButtonPressedPal = NEA_PaletteCreate();
 
+    this->SaveButtonMat = NEA_MaterialCreate();
+    this->SaveButtonPal = NEA_PaletteCreate();
+    this->SaveButtonPressedMat = NEA_MaterialCreate();
+    this->SaveButtonPressedPal = NEA_PaletteCreate();
+
     NEA_MaterialTexLoadGRF(this->ReplayButtonMat,
                             this->ReplayButtonPal,
                             NEA_TEXGEN_TEXCOORD,
@@ -487,7 +548,16 @@ void GameParty::LoadGamePartyAssets()
                             this->ExitButtonPressedPal,
                             NEA_TEXGEN_TEXCOORD,
                             "mainmenu/btns/ExitButtonPressed_png.grf");
+    
+    NEA_MaterialTexLoadGRF(this->SaveButtonMat,
+                            this->SaveButtonPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/SaveButton_png.grf");
 
+    NEA_MaterialTexLoadGRF(this->SaveButtonPressedMat,
+                            this->SaveButtonPressedPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/SaveButtonPressed_png.grf");
     for (int n = static_cast<int>(CardType::Negative_2); n <= static_cast<int>(CardType::Positive_12); ++n)
     {
         CardType i = static_cast<CardType>(n);
