@@ -1,4 +1,5 @@
 #include "MultiplayerFirstMenu.hpp"
+#include "MainMenuStates.hpp"
 
 void MultiplayerFirstMenu::LoadAssetsMultiplayerFirstMenu()
 {
@@ -92,6 +93,10 @@ std::optional<MainMenuStates> MultiplayerFirstMenu::ProcessLogicMultiplayerFirst
     else if (NEA_GUIObjectGetEvent(this->HostButton) == NEA_Clicked)
     {
         return MainMenuStates::MultiplayerHostMenu;
+    }
+    else if (NEA_GUIObjectGetEvent(this->JoinButton) == NEA_Clicked)
+    {
+        return MainMenuStates::MultiplayerJoinMenu;
     }
     return std::nullopt;
 }

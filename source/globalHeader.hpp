@@ -7,6 +7,7 @@
 #include <utility>
 #include <array>
 #include <print>
+#include <filesystem>
 #include <vector>
 #include <string>
 #include <random>
@@ -14,11 +15,27 @@
 #include <algorithm>
 #include <optional>
 #include <exception>
+
+// yas must be included before <nds.h>: nds.h pulls in picolibc's
+// <machine/endian.h> which defines _BIG_ENDIAN as a comparison constant, and
+// yas's endian detection treats `defined(_BIG_ENDIAN)` as "is big-endian".
+// Including yas first (together with -D_LITTLE_ENDIAN) makes it detect correctly.
+#include <yas/serialize.hpp>
+#include <yas/std_types.hpp>
+
 #include <nds.h>
 
 #include <NEAMain.h>
 #include <filesystem.h>
 #include <fat.h>
+
+struct GameSettings
+{
+    uint32_t musicSoundVolume;
+    uint32_t nosesSoundVolume;
+
+    YAS_DEFINE_STRUCT_SERIALIZE("GameSettings", musicSoundVolume, nosesSoundVolume);
+};
 
 enum class CardReturn
 {

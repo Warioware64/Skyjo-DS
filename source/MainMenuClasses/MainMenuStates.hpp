@@ -9,5 +9,6 @@ enum class MainMenuStates
     TransitionToPlayOnePlayer,
     MultiplayerFirstMenu,
     MultiplayerHostMenu,
-    MultiplayerJoinMenu
+    MultiplayerJoinMenu,
+    SettingsMenu
 };

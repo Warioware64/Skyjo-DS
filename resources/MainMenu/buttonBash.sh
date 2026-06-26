@@ -96,6 +96,31 @@ cat > $filePtxPath <<EOF
 -gt -og -v -cm 1024 -f tex4x4
 EOF
 
+
+buttonName="SettingsButton"
+
+./generate_hex_button.py --label "SETTINGS" --color yellow --output "./btns/${buttonName}.png"
+
+filePtxPath=./btns/${buttonName}.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+./generate_hex_button.py --label "SETTINGS" --color yellow --pressed  --output "./btns/${buttonName}Pressed.png"
+
+filePtxPath=./btns/${buttonName}Pressed.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+
+
 buttonName="MultiplayerButton"
 
 ./generate_hex_button.py --label "MULTIPLAYER" --color blue --output "./btns/${buttonName}.png"
@@ -309,6 +334,28 @@ cat > $filePtxPath <<EOF
 -gt -og -v -cm 1024 -f tex4x4
 EOF
 
+buttonName="SaveButton"
+
+./generate_hex_button.py --label "SAVE" --color "blue" --output "./btns/${buttonName}.png"
+
+filePtxPath=./btns/${buttonName}.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
+
+./generate_hex_button.py --label "SAVE" --color "blue" --pressed --output "./btns/${buttonName}Pressed.png"
+
+
+filePtxPath=./btns/${buttonName}Pressed.ptxc
+
+echo >> $filePtxPath
+
+cat > $filePtxPath <<EOF
+-gt -og -v -cm 1024 -f tex4x4
+EOF
 
 buttonName="YesButton"
 

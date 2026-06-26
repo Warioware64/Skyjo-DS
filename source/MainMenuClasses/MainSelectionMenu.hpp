@@ -11,6 +11,10 @@ class MainSelectionMenu
 
         NEA_GUIObj *PlayButton;
 
+        NEA_Material *SettingsMat[2];
+        NEA_Palette *SettingsPal[2];
+
+        NEA_GUIObj *SettingsButton;
     public:
         void LoadAssetsMainSelectionMenu();
         void UnloadAssetsMainSelectionMenu();

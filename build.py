@@ -47,7 +47,11 @@ arm9 = Arm9Binary(
         '${BLOCKSDS}/libs/maxmod',
         '${BLOCKSDSEXT}/nitro-engine-advanced',
     ],
-    cxxflags='-Wall -O2 -std=gnu++26',
+    # -D_LITTLE_ENDIAN + force-including yas's endian config first locks yas to
+    # little-endian in every TU *before* any <nds.h> can define _BIG_ENDIAN
+    # (which yas would otherwise misread as "big-endian"). Order-independent, so
+    # it survives files that include <nds.h> before the project headers.
+    cxxflags='-Wall -O2 -std=gnu++26 -D_LITTLE_ENDIAN -include yas/detail/config/endian.hpp',
 )
 arm9.generate_elf()
 

@@ -13,10 +13,12 @@
 
 using PlayerGames = std::array<CardType, 12>;
 using CardReturnType = std::array<CardReturn, 12>;
-typedef struct
+struct TouchPoseMyCard
 {
     int x_min, x_max, y_min, y_max;
-} TouchPoseMyCard;
+
+    YAS_DEFINE_STRUCT_SERIALIZE("TouchPoseMyCard", x_min, x_max, y_min, y_max);
+};
 
 enum class PausePhase
 {
@@ -165,6 +167,16 @@ class GameParty
 
         void InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyType party_arg);
         void RenderGameParty();
+
+        // NOTE: 'controllers' is intentionally NOT serialized — it's a vector of
+        // std::unique_ptr<IPlayerController> (polymorphic), which yas can't
+        // round-trip. Rebuild it after loading with BuildControllers(playerCount);
+        // CpuController carries no persistent state beyond cpuLevel.
+        YAS_DEFINE_STRUCT_SERIALIZE("GameParty", partyFirstTwoDraw, awaitingDiscardReveal, animTick,
+        popTimer, clearTimer, initialRevealCount, cpuLevel, partyType, playerCount,
+        phase, currentPlayerIndex, startingPlayerIndex, lastRoundTriggerPlayerIndex, drawSource,
+        heldCard, topScreenViewPlayerIdx, playerDeck, cardReturns, cardStack, discardPile,
+        namePlayers, MyCardPos);
 };
 
 extern GameParty gameparty;

@@ -106,6 +106,15 @@ void GameParty::PauseMenuGUIlogic()
             this->Quited = true;
             mainmenu.mainmenustates = MainMenuStates::OnePlayerPartyStart;
             mainmenu.bypassableChangeMenuStates = true;
+            /*
+            constexpr std::size_t yasTestFlag = yas::file | yas::binary | yas::no_header;
+            std::filesystem::path test_file(process.fatDeviceCPP + "_nds/SkyjoDS/test.dat");
+            yas::file_ostream yasTestOutput(test_file.c_str());
+            // yas has no serializer for std::filesystem::path; serialize a string.
+            //std::string test_payload = test_file.string();
+            yas::save<yasTestFlag>(yasTestOutput, gameparty);
+            yasTestOutput.flush();
+            */
 
         } 
     }

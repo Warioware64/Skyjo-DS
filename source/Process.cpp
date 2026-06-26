@@ -37,6 +37,60 @@ void Process::ProcessInit()
         std::terminate();
     }
     DEBUG_PRINT("Nitrofiles successful");
+    bool fatInit = fatInitDefault();
+    fatDevice = fatGetDefaultDrive();
+
+    // Defaults used whenever there's no readable save file. Set first so the
+    // game always has valid settings even if FAT/file access fails below.
+    gamesettings.musicSoundVolume = 1024;
+    gamesettings.nosesSoundVolume = 1024;
+
+    // IMPORTANT: this build is compiled with -fno-exceptions, so yas turns a
+    // failed file open into std::abort() (see yas exception_base.hpp). We must
+    // therefore only construct yas file streams when the open is guaranteed to
+    // succeed: FAT initialized, the folder exists (for writing), and the file
+    // exists (for reading). Otherwise we keep the defaults above.
+    const bool hasFat = fatInit && (fatDevice != nullptr);
+    if (!hasFat)
+    {
+        DEBUG_PRINT("FAT init failed - using default settings");
+    }
+    else
+    {
+        fatDeviceCPP = fatDevice;
+
+        std::error_code ec;
+        std::filesystem::path nds_folder(fatDeviceCPP + "_nds");
+        if (!std::filesystem::exists(nds_folder, ec))
+        {
+            std::filesystem::create_directory(nds_folder, ec);
+        }
+
+        std::filesystem::path skyjo_folder(fatDeviceCPP + "_nds/SkyjoDS");
+        if (!std::filesystem::exists(skyjo_folder, ec))
+        {
+            std::filesystem::create_directory(skyjo_folder, ec);
+        }
+
+        constexpr std::size_t yasFlag = yas::file | yas::binary | yas::no_header;
+        std::filesystem::path setting_file(fatDeviceCPP + "_nds/SkyjoDS/settings.dat");
+
+        // First run: create the save file with the current (default) settings.
+        if (std::filesystem::exists(skyjo_folder, ec) &&
+            !std::filesystem::exists(setting_file, ec))
+        {
+            yas::file_ostream yasOutput(setting_file.c_str());
+            yas::save<yasFlag>(yasOutput, gamesettings);
+            yasOutput.flush();
+        }
+
+        // Load persisted settings only if the file is actually there.
+        if (std::filesystem::exists(setting_file, ec))
+        {
+            yas::file_istream yasInput(setting_file.c_str());
+            yas::load<yasFlag>(yasInput, gamesettings);
+        }
+    }
 
     NEA_Init3D();
     NEA_MainScreenSetOnBottom();

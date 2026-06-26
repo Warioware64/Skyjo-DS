@@ -20,8 +20,11 @@ class Process
         Process();
         ~Process();
 
+        const char* fatDevice;
+        std::string fatDeviceCPP;
         std::string consoleUserName;
-
+        GameSettings gamesettings;
+        
         void CallInitializationOnePlayerParty(int cpu_number, CPULevel cpu_level);
 
         void ProcessInit();

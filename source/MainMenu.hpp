@@ -11,6 +11,8 @@
 #include "MainMenuClasses/OnePlayerPartyStart.hpp"
 #include "MainMenuClasses/MultiplayerFirstMenu.hpp"
 #include "MainMenuClasses/MultiplayerHostMenu.hpp"
+#include "MainMenuClasses/MultiplayerJoinMenu.hpp"
+#include "MainMenuClasses/SettingsMenu.hpp"
 
 class MainMenu
 {
@@ -43,6 +45,8 @@ class MainMenu
         OnePlayerPartyStart onePlayerParty;
         MultiplayerFirstMenu multiplayerFirstMenu;
         MultiplayerHostMenu multiplayerHostmenu;
+        MultiplayerJoinMenu multiplayerJoinmenu;
+        SettingsMenu settingsMenu;
 
         MainMenuStates mainmenustates = MainMenuStates::MainTitle;
         MainMenuStates OLDmainmenustates;
