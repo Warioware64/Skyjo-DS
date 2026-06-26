@@ -128,6 +128,32 @@ void GameParty::GamePartyLogicRender()
         NEA_GUIDraw();
         return;
     }
+
+    if (this->EndMenu)
+    {
+        NEA_RichTextRender3D(0, "RESULTS", 95, 6);
+
+        // Rank players by final score, lowest first (Skyjo: low score wins).
+        std::vector<int> order(this->finalScores.size());
+        for (size_t i = 0; i < order.size(); ++i) order.at(i) = static_cast<int>(i);
+        std::sort(order.begin(), order.end(),
+                  [this](int a, int b) { return this->finalScores.at(a) < this->finalScores.at(b); });
+
+        int y = 26;
+        for (size_t r = 0; r < order.size(); ++r)
+        {
+            int p = order.at(r);
+            std::string line = std::to_string(static_cast<int>(r) + 1) + ". " +
+                               this->namePlayers.at(p) + "  " +
+                               std::to_string(this->finalScores.at(p));
+            NEA_RichTextRender3D(0, line.c_str(), 30, y);
+            y += 16;
+        }
+
+        NEA_GUIDraw();
+        return;
+    }
+
     const bool initPhase = (this->phase == GamePhase::InitialReveal);
 
     // Discarding a stack-drawn card requires flipping a face-down card. When the
@@ -198,7 +224,79 @@ void GameParty::InitPauseMenuGUIbutton()
     
     NEA_GUIButtonConfig(this->QuitButton,
          this->QuitButtonMat, NEA_White, 31,
-        this->QuitButtonPressedMat, NEA_White, 31);    
+        this->QuitButtonPressedMat, NEA_White, 31);
+}
+
+void GameParty::ComputeFinalScores()
+{
+    // Each non-cleared slot scores its card value (CardType values ARE the
+    // points). Cleared columns are worth 0.
+    this->finalScores.assign(this->playerCount, 0);
+    for (int p = 0; p < this->playerCount; ++p)
+        for (int i = 0; i < 12; ++i)
+            if (this->cardReturns.at(p).at(i) != CardReturn::Cleared)
+                this->finalScores.at(p) += static_cast<int>(this->playerDeck.at(p).at(i));
+
+    // Skyjo penalty: the player who closed the round (revealed their whole hand
+    // first) has their total doubled if they did not finish strictly lowest.
+    // Doubling only applies to a positive total.
+    if (this->lastRoundTriggerPlayerIndex)
+    {
+        int t = *this->lastRoundTriggerPlayerIndex;
+        bool strictlyLowest = true;
+        for (int q = 0; q < this->playerCount; ++q)
+            if (q != t && this->finalScores.at(q) <= this->finalScores.at(t))
+                strictlyLowest = false;
+        if (!strictlyLowest && this->finalScores.at(t) > 0)
+            this->finalScores.at(t) *= 2;
+    }
+}
+
+void GameParty::InitEndGameMenu()
+{
+    for (int i = 0; i < 12; ++i)
+        NEA_Hw2DOBJSetVisible(this->viewGame[i], false);
+
+    this->ReplayButton = NEA_GUIButtonCreate( 5, 160,
+                                             5 + 64, 160 + 32);
+    this->ExitButton =  NEA_GUIButtonCreate( 190, 160,
+                                            190 + 64, 160 + 32);
+
+    NEA_GUIButtonConfig(this->ReplayButton,
+         this->ReplayButtonMat, NEA_White, 31,
+        this->ReplayButtonPressedMat, NEA_White, 31);
+
+    NEA_GUIButtonConfig(this->ExitButton,
+         this->ExitButtonMat, NEA_White, 31,
+        this->ExitButtonPressedMat, NEA_White, 31);
+}
+
+void GameParty::DestroyEndGameMenu()
+{
+    NEA_GUIDeleteObject(this->ReplayButton);
+    NEA_GUIDeleteObject(this->ExitButton);
+}
+
+void GameParty::EndGameGUIlogic()
+{
+    if (NEA_GUIObjectGetEvent(this->ReplayButton) == NEA_Clicked)
+    {
+        this->DestroyEndGameMenu();
+        this->UnloadGamePartyAssets();
+        // Re-enter a fresh party with the same settings. This sets process
+        // classstates=Init / menustates=PartyGameOnePlayer and stores the args.
+        process.CallInitializationOnePlayerParty(this->playerCount, this->cpuLevel);
+        this->Restarted = true;
+    }
+
+    if (NEA_GUIObjectGetEvent(this->ExitButton) == NEA_Clicked)
+    {
+        this->DestroyEndGameMenu();
+        this->UnloadGamePartyAssets();
+        this->Quited = true;
+        mainmenu.mainmenustates = MainMenuStates::OnePlayerPartyStart;
+        mainmenu.bypassableChangeMenuStates = true;
+    }
 }
 
 void GameParty::UnloadGamePartyAssets()
@@ -228,8 +326,11 @@ void GameParty::UnloadGamePartyAssets()
     NEA_MaterialDelete(this->NoButtonMat);
     NEA_MaterialDelete(this->NoButtonPressedMat);
 
+    NEA_MaterialDelete(this->ReplayButtonMat);
+    NEA_MaterialDelete(this->ReplayButtonPressedMat);
 
-
+    NEA_MaterialDelete(this->ExitButtonMat);
+    NEA_MaterialDelete(this->ExitButtonPressedMat);
 
 
     NEA_PaletteDelete(this->ContinueButtonPal);
@@ -243,6 +344,12 @@ void GameParty::UnloadGamePartyAssets()
 
     NEA_PaletteDelete(this->NoButtonPal);
     NEA_PaletteDelete(this->NoButtonPressedPal);
+
+    NEA_PaletteDelete(this->ReplayButtonPal);
+    NEA_PaletteDelete(this->ReplayButtonPressedPal);
+
+    NEA_PaletteDelete(this->ExitButtonPal);
+    NEA_PaletteDelete(this->ExitButtonPressedPal);
 
     for (int n = static_cast<int>(CardType::Negative_2); n <= static_cast<int>(CardType::Positive_12); ++n)
     {
@@ -342,6 +449,36 @@ void GameParty::LoadGamePartyAssets()
                             NEA_TEXGEN_TEXCOORD,
                             "mainmenu/btns/YesButtonPressed_png.grf");
 
+    this->ReplayButtonMat = NEA_MaterialCreate();
+    this->ReplayButtonPal = NEA_PaletteCreate();
+    this->ReplayButtonPressedMat = NEA_MaterialCreate();
+    this->ReplayButtonPressedPal = NEA_PaletteCreate();
+
+    this->ExitButtonMat = NEA_MaterialCreate();
+    this->ExitButtonPal = NEA_PaletteCreate();
+    this->ExitButtonPressedMat = NEA_MaterialCreate();
+    this->ExitButtonPressedPal = NEA_PaletteCreate();
+
+    NEA_MaterialTexLoadGRF(this->ReplayButtonMat,
+                            this->ReplayButtonPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/ReplayButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->ReplayButtonPressedMat,
+                            this->ReplayButtonPressedPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/ReplayButtonPressed_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->ExitButtonMat,
+                            this->ExitButtonPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/ExitButton_png.grf");
+
+    NEA_MaterialTexLoadGRF(this->ExitButtonPressedMat,
+                            this->ExitButtonPressedPal,
+                            NEA_TEXGEN_TEXCOORD,
+                            "mainmenu/btns/ExitButtonPressed_png.grf");
+
     for (int n = static_cast<int>(CardType::Negative_2); n <= static_cast<int>(CardType::Positive_12); ++n)
     {
         CardType i = static_cast<CardType>(n);
@@ -428,6 +565,9 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     this->partyType = party_arg;
     this->playerCount = number_arg;
     this->Quited = false;
+    this->EndMenu = false;
+    this->Restarted = false;
+    this->finalScores.clear();
     this->partyFirstTwoDraw = true;
     this->StartMenu = false;
     this->awaitingDiscardReveal = false;
@@ -838,9 +978,8 @@ void GameParty::EndTurn(int p)
 
 void GameParty::TickScoring()
 {
-    // TODO: full scoring screen (per-hand totals, doubling rule when the
-    //       trigger player is not strictly lowest). Skeleton just flips
-    //       everything and waits for an input to end the game.
+    // Flip every remaining face-down card, then wait for an input to tally the
+    // scores and open the end-game leaderboard.
     for (int p = 0; p < this->playerCount; ++p)
         for (int i = 0; i < 12; ++i)
             if (this->cardReturns.at(p).at(i) != CardReturn::Cleared)
@@ -850,7 +989,12 @@ void GameParty::TickScoring()
     this->RefreshTopScreen();
 
     if (this->keydown & (KEY_A | KEY_B | KEY_START | KEY_TOUCH))
+    {
         this->phase = GamePhase::Ended;
+        this->ComputeFinalScores();
+        this->EndMenu = true;
+        this->InitEndGameMenu();
+    }
 }
 
 void GameParty::ResolveColumnClears(int playerIdx)
@@ -915,26 +1059,37 @@ void GameParty::RenderGameParty()
 {
     while (1)
     {
-        if (this->StartMenu)
+        // The pause menu and the end-game leaderboard are both touch overlays:
+        // they need the GUI updated and they suppress gameplay input/rendering.
+        const bool overlay = this->StartMenu || this->EndMenu;
+        if (overlay)
         {
             NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D | NEA_UPDATE_GUI));
-            this->PauseMenuGUIlogic();
+            if (this->StartMenu)
+                this->PauseMenuGUIlogic();
+            else
+                this->EndGameGUIlogic();
+
             if (this->Quited)
             {
                 process.classstates = ClassStates::Init;
                 process.menustates = MenusStates::MainMenu;
                 break;
             }
+            // Replay: CallInitializationOnePlayerParty already set the process
+            // states to re-init a fresh party; just leave the render loop.
+            if (this->Restarted)
+                break;
         }
-        else 
+        else
         {
             NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D));
-        }    
-        
+        }
+
         scanKeys();
         this->keydown = keysDown();
         touchRead(&this->touchData);
-        if (!this->StartMenu)
+        if (!overlay)
         {
             if (this->keydown & KEY_START)
             {
@@ -942,7 +1097,7 @@ void GameParty::RenderGameParty()
                 this->StartMenu = true;
                 this->InitPauseMenuGUIbutton();
             }
-            else 
+            else
             {
                 this->GamePartyLogic();
             }

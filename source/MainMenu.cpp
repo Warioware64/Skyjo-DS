@@ -1,5 +1,6 @@
 #include "MainMenu.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
+#include "MainMenuClasses/MainSelectionMenu.hpp"
 #include "Process.hpp"
 #include "globalHeader.hpp"
 
@@ -65,6 +66,16 @@ void MainMenu::SCREEN_TOP()
             break;
         }
 
+        case MainMenuStates::MultiplayerFirstMenu:
+        {
+            this->multiplayerFirstMenu.ActionMultiplayerFirstMenu();
+            break;
+        }
+        case MainMenuStates::MultiplayerHostMenu:
+        {
+            this->multiplayerHostmenu.ActionMultiplayerHostMenu();
+            break;
+        }
         case MainMenuStates::TransitionToPlayOnePlayer:
         {
             break;
@@ -127,6 +138,10 @@ void MainMenu::LoadAssetsMainMenu()
                 this->playSelec.LoadAssetsPlaySelectionMenu(); break;
             case MainMenuStates::OnePlayerPartyStart:
                 this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
+            case MainMenuStates::MultiplayerFirstMenu:
+                this->multiplayerFirstMenu.LoadAssetsMultiplayerFirstMenu(); break;
+            case MainMenuStates::MultiplayerHostMenu:
+                this->multiplayerHostmenu.LoadAssetsMultiplayerHostMenu(); break;
             default: break;
         }
         this->canTouchDetect = false;
@@ -262,6 +277,19 @@ void MainMenu::RenderMainMenu()
                     break;
                 }
 
+                case MainMenuStates::MultiplayerFirstMenu:
+                {
+                    if (auto next = this->multiplayerFirstMenu.ProcessLogicMultiplayerFirstMenu())
+                        this->StartTransitionTo(*next);
+                    break;
+                }
+
+                case MainMenuStates::MultiplayerHostMenu:
+                {
+                    if (auto next = this->multiplayerHostmenu.ProcessLogicMultiplayerHostMenu())
+                        this->StartTransitionTo(*next);
+                    break;
+                }
                 case MainMenuStates::TransitionToPlayOnePlayer:
                 {
                     break;
@@ -294,6 +322,10 @@ void MainMenu::RenderMainMenu()
                                 this->playSelec.UnloadAssetsPlaySelectionMenu(); break;
                             case MainMenuStates::OnePlayerPartyStart:
                                 this->onePlayerParty.UnloadAssetsOnePlayerPartyStart(); break;
+                            case MainMenuStates::MultiplayerFirstMenu:
+                                this->multiplayerFirstMenu.UnloadAssetsMultiplayerFirstMenu(); break;
+                            case MainMenuStates::MultiplayerHostMenu:
+                                this->multiplayerHostmenu.UnloadAssetsMultiplayerHostMenu(); break;
                             case MainMenuStates::TransitionToPlayOnePlayer:
                                 break;
                             default: break;
@@ -311,6 +343,10 @@ void MainMenu::RenderMainMenu()
                                 this->playSelec.LoadAssetsPlaySelectionMenu(); break;
                             case MainMenuStates::OnePlayerPartyStart:
                                 this->onePlayerParty.LoadAssetsOnePlayerPartyStart(); break;
+                            case MainMenuStates::MultiplayerFirstMenu:
+                                this->multiplayerFirstMenu.LoadAssetsMultiplayerFirstMenu(); break;
+                            case MainMenuStates::MultiplayerHostMenu:
+                                this->multiplayerHostmenu.LoadAssetsMultiplayerHostMenu(); break;
                             case MainMenuStates::TransitionToPlayOnePlayer:
                                 this->triggerPlayPartyOnePlayer = true;
                             default: break;

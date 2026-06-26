@@ -6,5 +6,8 @@ enum class MainMenuStates
     MainSelectionMenu,
     PlaySelectionMenu,
     OnePlayerPartyStart,
-    TransitionToPlayOnePlayer
+    TransitionToPlayOnePlayer,
+    MultiplayerFirstMenu,
+    MultiplayerHostMenu,
+    MultiplayerJoinMenu
 };

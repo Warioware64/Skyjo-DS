@@ -9,7 +9,8 @@
 #include "MainMenuClasses/MainSelectionMenu.hpp"
 #include "MainMenuClasses/PlaySelectionMenu.hpp"
 #include "MainMenuClasses/OnePlayerPartyStart.hpp"
-
+#include "MainMenuClasses/MultiplayerFirstMenu.hpp"
+#include "MainMenuClasses/MultiplayerHostMenu.hpp"
 
 class MainMenu
 {
@@ -40,7 +41,8 @@ class MainMenu
         MainSelectionMenu mainSelec;
         PlaySelectionMenu playSelec;
         OnePlayerPartyStart onePlayerParty;
-
+        MultiplayerFirstMenu multiplayerFirstMenu;
+        MultiplayerHostMenu multiplayerHostmenu;
 
         MainMenuStates mainmenustates = MainMenuStates::MainTitle;
         MainMenuStates OLDmainmenustates;

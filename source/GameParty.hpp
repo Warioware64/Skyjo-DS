@@ -35,6 +35,11 @@ class GameParty
         void DestroyPauseMenuMain();
         void PauseMenuGUIlogic();
 
+        void ComputeFinalScores();
+        void InitEndGameMenu();
+        void DestroyEndGameMenu();
+        void EndGameGUIlogic();
+
         void GamePartyLogicRender();
         void InitPauseMenuGUIbutton();
 
@@ -85,6 +90,18 @@ class GameParty
         NEA_Palette *NoButtonPressedPal;
         NEA_GUIObj *NoButton;
 
+        NEA_Material *ReplayButtonMat;
+        NEA_Palette *ReplayButtonPal;
+        NEA_Material *ReplayButtonPressedMat;
+        NEA_Palette *ReplayButtonPressedPal;
+        NEA_GUIObj *ReplayButton;
+
+        NEA_Material *ExitButtonMat;
+        NEA_Palette *ExitButtonPal;
+        NEA_Material *ExitButtonPressedMat;
+        NEA_Palette *ExitButtonPressedPal;
+        NEA_GUIObj *ExitButton;
+
         NEA_Material *NotPossibleIconMat;
         NEA_Palette *NotPossibleIconPal;
 
@@ -124,6 +141,9 @@ class GameParty
 
         bool StartMenu;
         bool Quited;
+        bool EndMenu;
+        bool Restarted;
+        std::vector<int> finalScores;
         PausePhase pausephase;
 
     public:

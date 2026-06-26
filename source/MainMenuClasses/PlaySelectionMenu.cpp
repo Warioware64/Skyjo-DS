@@ -1,4 +1,5 @@
 #include "PlaySelectionMenu.hpp"
+#include "MainMenuStates.hpp"
 
 
 void PlaySelectionMenu::LoadAssetsPlaySelectionMenu()
@@ -95,6 +96,10 @@ std::optional<MainMenuStates> PlaySelectionMenu::ProcessLogicPlaySelectionMenu()
     else if (NEA_GUIObjectGetEvent(this->OnePlayerButton) == NEA_Clicked)
     {
         return MainMenuStates::OnePlayerPartyStart;
+    }
+    else if (NEA_GUIObjectGetEvent(this->MultiplayerButton) == NEA_Clicked)
+    {
+        return MainMenuStates::MultiplayerFirstMenu;
     }
     return std::nullopt;
 }
