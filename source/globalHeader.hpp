@@ -70,7 +70,9 @@ enum class CPULevel
 enum class MenusStates
 {
     MainMenu,
-    PartyGameOnePlayer
+    PartyGameOnePlayer,
+    PartyGameMultiplayerHost,
+    PartyGameMultiplayerClient
 };
 enum class CardType : int
 {

@@ -47,6 +47,23 @@ void Process::CallResumeOnePlayerParty()
    this->resumeRequested = true;
 }
 
+void Process::CallInitializationMultiplayerHost(int player_count)
+{
+   this->classstates = ClassStates::Init;
+   this->menustates = MenusStates::PartyGameMultiplayerHost;
+   this->mp_player_count_arg = player_count;
+}
+
+void Process::CallInitializationMultiplayerClient(int seat, int player_count,
+                                                  const std::vector<std::string>& names)
+{
+   this->classstates = ClassStates::Init;
+   this->menustates = MenusStates::PartyGameMultiplayerClient;
+   this->mp_seat_arg = seat;
+   this->mp_player_count_arg = player_count;
+   this->mp_names_arg = names;
+}
+
 void Process::ProcessInit()
 {
     irqEnable(IRQ_HBLANK);
@@ -174,6 +191,18 @@ void Process::ProcessGame()
             }
             this->classstates = ClassStates::Playing;
         }
+        else if (this->menustates == MenusStates::PartyGameMultiplayerHost)
+        {
+            gameparty.InitGamePartySituation(this->mp_player_count_arg, CPULevel::Easy,
+                                             PartyType::LocalMultiplayer);
+            this->classstates = ClassStates::Playing;
+        }
+        else if (this->menustates == MenusStates::PartyGameMultiplayerClient)
+        {
+            gameparty.InitGamePartyClient(this->mp_seat_arg, this->mp_player_count_arg,
+                                          this->mp_names_arg);
+            this->classstates = ClassStates::Playing;
+        }
     }
     else if(this->classstates == ClassStates::Playing)
     {
@@ -184,6 +213,14 @@ void Process::ProcessGame()
         else if (this->menustates == MenusStates::PartyGameOnePlayer)
         {
             gameparty.RenderGameParty();
+        }
+        else if (this->menustates == MenusStates::PartyGameMultiplayerHost)
+        {
+            gameparty.RenderGameParty();
+        }
+        else if (this->menustates == MenusStates::PartyGameMultiplayerClient)
+        {
+            gameparty.RenderGamePartyClient();
         }
     }
     //std::terminate();

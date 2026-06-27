@@ -87,6 +87,8 @@ void MainMenu::SCREEN_TOP()
             break;
         }
         case MainMenuStates::TransitionToPlayOnePlayer:
+        case MainMenuStates::TransitionToHostGame:
+        case MainMenuStates::TransitionToJoinGame:
         {
             break;
         }
@@ -176,6 +178,8 @@ void MainMenu::LoadAssetsMainMenu()
     this->brightness = 16;
     this->frameTrigger = 0;
     this->triggerPlayPartyOnePlayer = false;
+    this->triggerPlayPartyMultiplayerHost = false;
+    this->triggerPlayPartyMultiplayerClient = false;
     
     this->fadePhase = FadePhase::FadingIn;
     this->fadeStepInterval = 5;
@@ -326,6 +330,8 @@ void MainMenu::RenderMainMenu()
                     break;
                 }
                 case MainMenuStates::TransitionToPlayOnePlayer:
+                case MainMenuStates::TransitionToHostGame:
+                case MainMenuStates::TransitionToJoinGame:
                 {
                     break;
                 }
@@ -366,6 +372,8 @@ void MainMenu::RenderMainMenu()
                             case MainMenuStates::SettingsMenu:
                                 this->settingsMenu.UnloadAssetsSettingsMenu(); break;
                             case MainMenuStates::TransitionToPlayOnePlayer:
+                            case MainMenuStates::TransitionToHostGame:
+                            case MainMenuStates::TransitionToJoinGame:
                                 break;
                             default: break;
                         }
@@ -391,7 +399,11 @@ void MainMenu::RenderMainMenu()
                             case MainMenuStates::SettingsMenu:
                                 this->settingsMenu.LoadAssetsSettingsMenu(); break;
                             case MainMenuStates::TransitionToPlayOnePlayer:
-                                this->triggerPlayPartyOnePlayer = true;
+                                this->triggerPlayPartyOnePlayer = true; break;
+                            case MainMenuStates::TransitionToHostGame:
+                                this->triggerPlayPartyMultiplayerHost = true; break;
+                            case MainMenuStates::TransitionToJoinGame:
+                                this->triggerPlayPartyMultiplayerClient = true; break;
                             default: break;
                         }
                         this->fadePhase = FadePhase::FadingIn;
@@ -438,7 +450,9 @@ void MainMenu::RenderMainMenu()
 
         }
 
-        if (this->triggerPlayPartyOnePlayer)
+        if (this->triggerPlayPartyOnePlayer ||
+            this->triggerPlayPartyMultiplayerHost ||
+            this->triggerPlayPartyMultiplayerClient)
             break;
     }
 
@@ -458,6 +472,23 @@ void MainMenu::RenderMainMenu()
             process.CallInitializationOnePlayerParty(this->onePlayerParty.Get_player_number(),
                                                      this->onePlayerParty.Get_CPULevel());
         }
+    }
+    else if (this->triggerPlayPartyMultiplayerHost)
+    {
+        // The host lobby already locked the lobby and sent the start handshake
+        // to every client; just hand the player count to the game party. The
+        // dswifi link stays live across the transition (it is IRQ-driven).
+        this->UnloadAssetsMainMenu();
+        process.CallInitializationMultiplayerHost(this->multiplayerHostmenu.GetPlayerCount());
+    }
+    else if (this->triggerPlayPartyMultiplayerClient)
+    {
+        // The join lobby already connected and received the host's start
+        // handshake (assigned seat + roster).
+        this->UnloadAssetsMainMenu();
+        process.CallInitializationMultiplayerClient(this->multiplayerJoinmenu.GetSeat(),
+                                                    this->multiplayerJoinmenu.GetPlayerCount(),
+                                                    this->multiplayerJoinmenu.GetNames());
     }
 }
 MainMenu mainmenu;

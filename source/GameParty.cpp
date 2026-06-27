@@ -4,8 +4,11 @@
 #include "globalHeader.hpp"
 #include "GamePartyClasses/HumanTouchController.hpp"
 #include "GamePartyClasses/CpuController.hpp"
+#include "GamePartyClasses/RemoteController.hpp"
+#include "Net/NetLink.hpp"
 #include <NEAGUI.h>
 #include <NEAGeneral.h>
+#include <cstring>
 
 
 
@@ -212,8 +215,8 @@ void GameParty::GamePartyLogicRender()
     // (they must swap), so flag the discard pile as unavailable.
     const bool mustSwap = this->heldCard.has_value() &&
                           this->drawSource == DrawSource::Stack &&
-                          this->currentPlayerIndex == 0 &&
-                          this->HandFullyRevealed(0);
+                          this->currentPlayerIndex == this->localPlayerIndex &&
+                          this->HandFullyRevealed(this->localPlayerIndex);
 
     NEA_SpriteVisible(this->pullpacketIconNot[0], initPhase);
     NEA_SpriteVisible(this->pullpacketIconNot[1], initPhase || mustSwap);
@@ -238,7 +241,7 @@ void GameParty::GamePartyLogicRender()
     {
         NEA_RichTextRender3D(0, "Reveal two card \n", 120, 15);
     }
-    else if (this->awaitingDiscardReveal && this->currentPlayerIndex == 0)
+    else if (this->awaitingDiscardReveal && this->currentPlayerIndex == this->localPlayerIndex)
     {
         NEA_RichTextRender3D(0, "Reveal a card \n", 120, 15);
     }
@@ -631,9 +634,11 @@ void GameParty::BuildControllers(int n)
 
         case PartyType::LocalMultiplayer:
         case PartyType::OnlineMultiplayer:
-            // TODO: route remote/multi-pad input through dedicated controllers.
-            for (int i = 0; i < n; ++i)
-                this->controllers.push_back(std::make_unique<HumanTouchController>());
+            // Host authority: seat 0 is the local human on this console; every
+            // other seat is driven by intents arriving over WiFi from its client.
+            this->controllers.push_back(std::make_unique<HumanTouchController>());
+            for (int i = 1; i < n; ++i)
+                this->controllers.push_back(std::make_unique<RemoteController>(i));
             break;
     }
 }
@@ -654,6 +659,8 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     this->phase = GamePhase::InitialReveal;
     this->animTick = 0;
     for (int i = 0; i < 12; ++i) { this->popTimer[i] = 0; this->clearTimer[i] = 0; }
+    this->localPlayerIndex = 0; // host / single-player drives seat 0
+    this->netLastSnapshot.clear();
     this->currentPlayerIndex = 0;
     this->startingPlayerIndex = 0;
     this->lastRoundTriggerPlayerIndex = std::nullopt;
@@ -814,6 +821,8 @@ void GameParty::ResumeGamePartySituation()
     this->pausephase = PausePhase::PauseMenuMain;
     this->finalScores.clear();
     this->prevKeydown = 0;
+    this->localPlayerIndex = 0; // resumed games are always single-player
+    this->netLastSnapshot.clear();
     for (int i = 0; i < 12; ++i) { this->popTimer[i] = 0; this->clearTimer[i] = 0; }
 
     this->LoadGamePartyAssets();
@@ -832,7 +841,8 @@ void GameParty::ResumeGamePartySituation()
 
 void GameParty::RefreshMyHandSprite(int slot)
 {
-    if (this->cardReturns.at(0).at(slot) == CardReturn::Cleared)
+    const int me = this->localPlayerIndex;
+    if (this->cardReturns.at(me).at(slot) == CardReturn::Cleared)
     {
         // A clear fade-out owns the sprite until its timer expires.
         if (this->clearTimer[slot] > 0) return;
@@ -841,9 +851,9 @@ void GameParty::RefreshMyHandSprite(int slot)
     }
 
     std::optional<CardType> mat = std::nullopt;
-    if (this->cardReturns.at(0).at(slot) == CardReturn::Returned)
+    if (this->cardReturns.at(me).at(slot) == CardReturn::Returned)
     {
-        mat = this->playerDeck.at(0).at(slot);
+        mat = this->playerDeck.at(me).at(slot);
     }
     NEA_SpriteSetMaterial(this->myPacket[slot], sharedAssetsGameParty.GetCardMat(mat));
     NEA_SpriteVisible(this->myPacket[slot], true);
@@ -929,7 +939,7 @@ void GameParty::HandleTopScreenCycling()
         for (int guard = 0; guard < this->playerCount; ++guard)
         {
             idx = (idx + dir + this->playerCount) % this->playerCount;
-            if (idx != 0) break;
+            if (idx != this->localPlayerIndex) break;
         }
         this->topScreenViewPlayerIdx = idx;
         this->RefreshTopScreen();
@@ -950,7 +960,7 @@ void GameParty::TickInitialReveal()
         this->cardReturns.at(p).at(*slot) = CardReturn::Returned;
         this->initialRevealCount[p]++;
 
-        if (p == 0) { this->RefreshMyHandSprite(*slot); this->popTimer[*slot] = kPopFrames; }
+        if (p == this->localPlayerIndex) { this->RefreshMyHandSprite(*slot); this->popTimer[*slot] = kPopFrames; }
         if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
     }
 
@@ -994,7 +1004,7 @@ void GameParty::TickTurn()
             if (!slot) return;
             if (this->cardReturns.at(p).at(*slot) != CardReturn::Unreturned) return;
             this->cardReturns.at(p).at(*slot) = CardReturn::Returned;
-            if (p == 0) { this->RefreshMyHandSprite(*slot); this->popTimer[*slot] = kPopFrames; }
+            if (p == this->localPlayerIndex) { this->RefreshMyHandSprite(*slot); this->popTimer[*slot] = kPopFrames; }
             if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
             this->ResolveColumnClears(p);
         }
@@ -1078,7 +1088,7 @@ void GameParty::TickTurn()
         actedSlot = *slot;
     }
 
-    if (p == 0) { this->RefreshMyHandSprite(actedSlot); this->popTimer[actedSlot] = kPopFrames; }
+    if (p == this->localPlayerIndex) { this->RefreshMyHandSprite(actedSlot); this->popTimer[actedSlot] = kPopFrames; }
     if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
     this->RefreshDiscardSprite();
     this->ResolveColumnClears(p);
@@ -1106,7 +1116,7 @@ void GameParty::EndTurn(int p)
     }
 
     this->currentPlayerIndex = nextIdx;
-    if (nextIdx != 0)
+    if (nextIdx != this->localPlayerIndex)
     {
         this->topScreenViewPlayerIdx = nextIdx;
         this->RefreshTopScreen();
@@ -1166,7 +1176,7 @@ void GameParty::ResolveColumnClears(int playerIdx)
         ret.at(b) = CardReturn::Cleared;
         ret.at(d) = CardReturn::Cleared;
 
-        if (playerIdx == 0)
+        if (playerIdx == this->localPlayerIndex)
         {
             // Start the fade-out: keep the matched face visible and let
             // AnimateHandSprites shrink/fade it before hiding the slot.
@@ -1253,11 +1263,284 @@ void GameParty::RenderGameParty()
             }
         }
 
-
+        // Host authority: push the new state to clients, and bail cleanly to the
+        // main menu if a client dropped.
+        if (this->partyType == PartyType::LocalMultiplayer)
+        {
+            if (NetLink::HostLostClient())
+            {
+                this->UnloadGamePartyAssets();
+                NetLink::Shutdown();
+                process.classstates = ClassStates::Init;
+                process.menustates = MenusStates::MainMenu;
+                break;
+            }
+            NetLink::HostDriveCycle();
+            this->NetHostBroadcastIfChanged();
+        }
 
         NEA_Process([](){
             gameparty.GamePartyLogicRender();
         });
     }
 }
+
+// ---------------------------------------------------------------------------
+// Local multiplayer: snapshot build/apply and the client render loop.
+// ---------------------------------------------------------------------------
+
+GameNetSnapshot GameParty::BuildSnapshot() const
+{
+    GameNetSnapshot s;
+    s.phase = static_cast<uint8_t>(this->phase);
+    s.playerCount = static_cast<uint8_t>(this->playerCount);
+    s.currentPlayerIndex = static_cast<int8_t>(this->currentPlayerIndex);
+    s.startingPlayerIndex = static_cast<int8_t>(this->startingPlayerIndex);
+    s.lastRoundTrigger = this->lastRoundTriggerPlayerIndex
+        ? static_cast<int8_t>(*this->lastRoundTriggerPlayerIndex) : kNoIndex;
+    s.awaitingDiscardReveal = this->awaitingDiscardReveal ? 1 : 0;
+    s.drawSource = this->drawSource
+        ? static_cast<int8_t>(*this->drawSource) : kNoIndex;
+    s.heldCard = this->heldCard
+        ? static_cast<int8_t>(static_cast<int>(*this->heldCard)) : kNoCard;
+    s.discardTop = this->discardPile.empty()
+        ? kNoCard : static_cast<int8_t>(static_cast<int>(this->discardPile.back()));
+    s.cardStackCount = static_cast<uint16_t>(this->cardStack.size());
+
+    s.hands.resize(this->playerCount);
+    for (int p = 0; p < this->playerCount; ++p)
+    {
+        for (int i = 0; i < 12; ++i)
+        {
+            CardReturn st = this->cardReturns.at(p).at(i);
+            s.hands.at(p).at(i).state = static_cast<int8_t>(st);
+            // Only reveal the value of cards the clients are allowed to see.
+            s.hands.at(p).at(i).value = (st == CardReturn::Unreturned)
+                ? kNoCard
+                : static_cast<int8_t>(static_cast<int>(this->playerDeck.at(p).at(i)));
+        }
+    }
+
+    if (this->phase == GamePhase::Scoring || this->phase == GamePhase::Ended)
+        for (int v : this->finalScores) s.finalScores.push_back(v);
+
+    return s;
+}
+
+void GameParty::NetHostBroadcastIfChanged()
+{
+    GameNetSnapshot snap = this->BuildSnapshot();
+    yas::shared_buffer sb = yas::save<kYasNetFlag>(snap);
+
+    const uint8_t* bytes = reinterpret_cast<const uint8_t*>(sb.data.get());
+    bool changed = this->netLastSnapshot.size() != sb.size ||
+        std::memcmp(this->netLastSnapshot.data(), bytes, sb.size) != 0;
+    if (!changed) return;
+
+    this->netLastSnapshot.assign(bytes, bytes + sb.size);
+    NetLink::HostBroadcastSnapshot(snap);
+}
+
+void GameParty::ApplySnapshot(const GameNetSnapshot& s)
+{
+    this->phase = static_cast<GamePhase>(s.phase);
+    this->currentPlayerIndex = s.currentPlayerIndex;
+    this->startingPlayerIndex = s.startingPlayerIndex;
+    this->lastRoundTriggerPlayerIndex = (s.lastRoundTrigger == kNoIndex)
+        ? std::nullopt : std::optional<int>(s.lastRoundTrigger);
+    this->awaitingDiscardReveal = (s.awaitingDiscardReveal != 0);
+    this->drawSource = (s.drawSource == kNoIndex)
+        ? std::nullopt : std::optional<DrawSource>(static_cast<DrawSource>(s.drawSource));
+    this->heldCard = (s.heldCard == kNoCard)
+        ? std::nullopt : std::optional<CardType>(static_cast<CardType>(s.heldCard));
+
+    this->discardPile.clear();
+    if (s.discardTop != kNoCard)
+        this->discardPile.push_back(static_cast<CardType>(s.discardTop));
+
+    // The draw pile is never rendered by content, only existence; keep a stub of
+    // the right height so any size checks behave.
+    this->cardStack.assign(s.cardStackCount, CardType::Neutral_0);
+
+    int pc = static_cast<int>(s.hands.size());
+    if (static_cast<int>(this->cardReturns.size()) < pc) this->cardReturns.resize(pc);
+    if (static_cast<int>(this->playerDeck.size()) < pc) this->playerDeck.resize(pc);
+    for (int p = 0; p < pc; ++p)
+        for (int i = 0; i < 12; ++i)
+        {
+            this->cardReturns.at(p).at(i) = static_cast<CardReturn>(s.hands.at(p).at(i).state);
+            if (s.hands.at(p).at(i).value != kNoCard)
+                this->playerDeck.at(p).at(i) = static_cast<CardType>(s.hands.at(p).at(i).value);
+        }
+
+    this->finalScores.clear();
+    for (int v : s.finalScores) this->finalScores.push_back(v);
+
+    // Reflect the new state on the sprites.
+    for (int i = 0; i < 12; ++i) this->RefreshMyHandSprite(i);
+    this->RefreshDiscardSprite();
+    this->RefreshTopScreen();
+    if (this->heldCard.has_value())
+        NEA_SpriteSetMaterial(this->heldCardSprite,
+                              sharedAssetsGameParty.GetCardMat(*this->heldCard));
+}
+
+void GameParty::InitGamePartyClient(int seatIndex, int playerCnt,
+                                    const std::vector<std::string>& names)
+{
+    this->partyType = PartyType::LocalMultiplayer;
+    this->playerCount = playerCnt;
+    this->localPlayerIndex = seatIndex;
+    this->Quited = false;
+    this->EndMenu = false;
+    this->Restarted = false;
+    this->StartMenu = false;
+    this->finalScores.clear();
+    this->partyFirstTwoDraw = true;
+    this->awaitingDiscardReveal = false;
+    this->phase = GamePhase::InitialReveal;
+    this->animTick = 0;
+    for (int i = 0; i < 12; ++i) { this->popTimer[i] = 0; this->clearTimer[i] = 0; }
+    this->currentPlayerIndex = 0;
+    this->startingPlayerIndex = 0;
+    this->lastRoundTriggerPlayerIndex = std::nullopt;
+    this->drawSource = std::nullopt;
+    this->heldCard = std::nullopt;
+    // Show some opponent (never our own hand) on the top screen by default.
+    this->topScreenViewPlayerIdx = (seatIndex == 0) ? (playerCnt > 1 ? 1 : 0) : 0;
+    this->prevKeydown = 0;
+    this->initialRevealCount.fill(0);
+    this->netLastSnapshot.clear();
+
+    this->LoadGamePartyAssets();
+
+    // Clients hold no real deck; just a face-down mirror sized like the host's.
+    this->playerDeck.assign(playerCnt, PlayerGames{});
+    std::array<CardReturn, 12> unreturnedRow;
+    unreturnedRow.fill(CardReturn::Unreturned);
+    this->cardReturns.assign(playerCnt, unreturnedRow);
+    this->cardStack.clear();
+    this->discardPile.clear();
+
+    this->namePlayers.assign(names.begin(), names.end());
+    this->namePlayers.resize(playerCnt);
+
+    this->BuildGamePartyScene();
+}
+
+void GameParty::RenderGamePartyClient()
+{
+    HumanTouchController input; // stateless; produces the local player's intents
+
+    while (1)
+    {
+        NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D));
+
+        scanKeys();
+        this->keydown = keysDown();
+        touchRead(&this->touchData);
+
+        NetLink::ClientDriveCycle();
+
+        // Lost the host? Bail cleanly back to the main menu.
+        if (NetLink::ClientLostHost())
+        {
+            this->UnloadGamePartyAssets();
+            NetLink::Shutdown();
+            process.classstates = ClassStates::Init;
+            process.menustates = MenusStates::MainMenu;
+            break;
+        }
+
+        // Quit: leave the game and disconnect.
+        if (this->keydown & KEY_SELECT)
+        {
+            this->UnloadGamePartyAssets();
+            NetLink::Shutdown();
+            process.classstates = ClassStates::Init;
+            process.menustates = MenusStates::MainMenu;
+            break;
+        }
+
+        // Pull the freshest host state.
+        GameNetSnapshot snap;
+        bool got = false;
+        while (NetLink::ClientPollSnapshot(snap)) got = true; // drain to newest
+        if (got) this->ApplySnapshot(snap);
+
+        // Top-screen opponent cycling stays local to the client.
+        this->HandleTopScreenCycling();
+
+        // While the game is live, translate local touches into intents.
+        if (this->phase != GamePhase::Scoring && this->phase != GamePhase::Ended)
+            this->NetClientSendInput(input);
+
+        NEA_Process([](){
+            gameparty.GamePartyLogicRender();
+        });
+    }
+}
+
+void GameParty::NetClientSendInput(IPlayerController& input)
+{
+    const int me = this->localPlayerIndex;
+
+    auto send = [](NetIntentKind kind, int arg) {
+        GameNetIntent in;
+        in.kind = static_cast<uint8_t>(kind);
+        in.arg = static_cast<int8_t>(arg);
+        NetLink::ClientSendIntent(in);
+    };
+
+    // The decision the host is waiting for is fully determined by the snapshot
+    // sub-state, so the client replicates TickTurn's branching to know which
+    // controller method to poll, then ships the result up instead of applying.
+    if (this->phase == GamePhase::InitialReveal)
+    {
+        int revealed = 0;
+        for (int i = 0; i < 12; ++i)
+            if (this->cardReturns.at(me).at(i) == CardReturn::Returned) ++revealed;
+        if (revealed >= 2) return;
+
+        if (auto slot = input.ChooseInitialReveal(*this, me))
+            send(NetIntentKind::InitialReveal, *slot);
+        return;
+    }
+
+    if (this->currentPlayerIndex != me) return; // not our turn
+
+    if (this->awaitingDiscardReveal)
+    {
+        if (auto slot = input.ChooseInitialReveal(*this, me))
+            send(NetIntentKind::InitialReveal, *slot);
+        return;
+    }
+
+    if (!this->drawSource)
+    {
+        if (auto src = input.ChooseDrawSource(*this, me))
+            send(*src == DrawSource::Stack ? NetIntentKind::DrawStack
+                                           : NetIntentKind::DrawDiscard, 0);
+        return;
+    }
+
+    if (!this->heldCard) return; // host is resolving the draw; wait for next snap
+
+    if (*this->drawSource == DrawSource::Stack)
+    {
+        if (auto act = input.ChooseStackAction(*this, me, *this->heldCard))
+        {
+            if (act->kind == StackAction::Kind::Replace)
+                send(NetIntentKind::StackReplace, act->slot);
+            else
+                send(NetIntentKind::StackFlipOnly, 0);
+        }
+    }
+    else
+    {
+        if (auto slot = input.ChooseDiscardReplaceSlot(*this, me, *this->heldCard))
+            send(NetIntentKind::DiscardReplace, *slot);
+    }
+}
+
 GameParty gameparty;

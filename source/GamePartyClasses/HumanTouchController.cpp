@@ -21,7 +21,7 @@ namespace
                 g.touchData.py >= r.y_min && g.touchData.py <= r.y_max)
             {
                 // A cleared (column-removed) slot is empty and cannot be acted on.
-                if (g.cardReturns.at(0).at(i) == CardReturn::Cleared)
+                if (g.cardReturns.at(g.localPlayerIndex).at(i) == CardReturn::Cleared)
                     return std::nullopt;
                 return i;
             }

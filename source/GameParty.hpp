@@ -5,6 +5,7 @@
 #include "DebugPrint.hpp"
 #include "GamePartyClasses/GamePartySharedAssets.hpp"
 #include "GamePartyClasses/PlayerController.hpp"
+#include "Net/NetProtocol.hpp"
 #include "Process.hpp"
 #include "MainMenu.hpp"
 #include <NEAGUI.h>
@@ -52,6 +53,14 @@ class GameParty
         void InitCardStack();
 
         void BuildControllers(int playerCount);
+
+        // Local-multiplayer (host-authoritative) networking helpers.
+        GameNetSnapshot BuildSnapshot() const;     // host: pack renderable state
+        void ApplySnapshot(const GameNetSnapshot& s); // client: render from state
+        void NetHostBroadcastIfChanged();          // host: send snapshot on change
+        void NetClientSendInput(IPlayerController& input); // client: emit intents
+        std::vector<uint8_t> netLastSnapshot;      // last bytes sent (change detect)
+
         void TickInitialReveal();
         void TickTurn();
         void TickScoring();
@@ -175,9 +184,20 @@ class GameParty
         uint32_t keydown;
         touchPosition touchData;
 
+        // The player whose hand is shown on the bottom screen and driven by the
+        // local touch input. 0 for single-player and for the multiplayer host;
+        // the assigned seat for a multiplayer client. Not serialized (runtime).
+        int localPlayerIndex = 0;
+
         void InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyType party_arg);
         void ResumeGamePartySituation();
         void RenderGameParty();
+
+        // Local-multiplayer client: build the mirror scene for an assigned seat
+        // and render/drive it purely from host snapshots.
+        void InitGamePartyClient(int seatIndex, int playerCnt,
+                                 const std::vector<std::string>& names);
+        void RenderGamePartyClient();
 
         // NOTE: 'controllers' is intentionally NOT serialized — it's a vector of
         // std::unique_ptr<IPlayerController> (polymorphic), which yas can't

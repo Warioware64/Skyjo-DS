@@ -54,6 +54,8 @@ class MainMenu
         uint32_t keys;
 
         bool triggerPlayPartyOnePlayer = false;
+        bool triggerPlayPartyMultiplayerHost = false;
+        bool triggerPlayPartyMultiplayerClient = false;
 
 
         bool bypassableChangeMenuStates = false;

@@ -41,10 +41,11 @@ arm9 = Arm9Binary(
     sourcedirs=['source'],
     includedirs=['source'],
     defines=defines_,
-    libs=['NEA', 'mm9', 'nds9'],
+    libs=['NEA', 'mm9', 'dswifi9', 'nds9'],
     libdirs=[
         '${BLOCKSDS}/libs/libnds',
         '${BLOCKSDS}/libs/maxmod',
+        '${BLOCKSDS}/libs/dswifi',
         '${BLOCKSDSEXT}/nitro-engine-advanced',
     ],
     # -D_LITTLE_ENDIAN + force-including yas's endian config first locks yas to
