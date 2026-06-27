@@ -14,6 +14,21 @@ Process::~Process()
 
 }
 
+void Process::CallSaveSettings()
+{
+    constexpr std::size_t yasFlagSAV = yas::file | yas::binary | yas::no_header;
+    std::filesystem::path setting_fileSAV(fatDeviceCPP + "_nds/SkyjoDS/settings.dat");
+
+    // First run: create the save file with the current (default) settings.
+    if (std::filesystem::exists(setting_fileSAV))
+    {
+        std::filesystem::remove(setting_fileSAV);
+        yas::file_ostream yasOutputSave(setting_fileSAV.c_str());
+        yas::save<yasFlagSAV>(yasOutputSave, gamesettings);
+        yasOutputSave.flush();
+    }    
+}
+
 void Process::CallInitializationOnePlayerParty(int cpu_number, CPULevel cpu_level)
 {
    this->classstates = ClassStates::Init;
@@ -23,6 +38,13 @@ void Process::CallInitializationOnePlayerParty(int cpu_number, CPULevel cpu_leve
    this->cpu_level_arg = cpu_level;
    this->party_type_arg = PartyType::OnePlayerCPU;
 
+}
+
+void Process::CallResumeOnePlayerParty()
+{
+   this->classstates = ClassStates::Init;
+   this->menustates = MenusStates::PartyGameOnePlayer;
+   this->resumeRequested = true;
 }
 
 void Process::ProcessInit()
@@ -141,9 +163,15 @@ void Process::ProcessGame()
         }
         else if (this->menustates == MenusStates::PartyGameOnePlayer)
         {
-            //error.errorReason.assign("HERE IS CRASH LOL");
-            //std::terminate();
-            gameparty.InitGamePartySituation(this->cpu_number_arg, this->cpu_level_arg, this->party_type_arg);
+            if (this->resumeRequested)
+            {
+                this->resumeRequested = false;
+                gameparty.ResumeGamePartySituation();
+            }
+            else
+            {
+                gameparty.InitGamePartySituation(this->cpu_number_arg, this->cpu_level_arg, this->party_type_arg);
+            }
             this->classstates = ClassStates::Playing;
         }
     }

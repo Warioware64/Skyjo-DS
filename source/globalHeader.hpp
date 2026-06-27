@@ -12,10 +12,11 @@
 #include <string>
 #include <random>
 #include <iterator>
+#include <chrono>
 #include <algorithm>
 #include <optional>
 #include <exception>
-
+#include <cmath>
 // yas must be included before <nds.h>: nds.h pulls in picolibc's
 // <machine/endian.h> which defines _BIG_ENDIAN as a comparison constant, and
 // yas's endian detection treats `defined(_BIG_ENDIAN)` as "is big-endian".
@@ -31,8 +32,8 @@
 
 struct GameSettings
 {
-    uint32_t musicSoundVolume;
-    uint32_t nosesSoundVolume;
+    int32_t musicSoundVolume;
+    int32_t nosesSoundVolume;
 
     YAS_DEFINE_STRUCT_SERIALIZE("GameSettings", musicSoundVolume, nosesSoundVolume);
 };

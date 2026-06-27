@@ -100,7 +100,14 @@ void MainSelectionMenu::UnloadAssetsMainSelectionMenu()
 
 std::optional<MainMenuStates> MainSelectionMenu::ProcessLogicMainSelectionMenu()
 {
-    if (NEA_GUIObjectGetEvent(this->PlayButton) == NEA_Clicked)
+    if (resumableParty && NEA_GUIObjectGetEvent(this->ResumeButton) == NEA_Clicked)
+    {
+        // Flag the resume so MainMenu loads the saved party at launch, then reuse
+        // the normal one-player launch transition.
+        this->resumeSelected = true;
+        return MainMenuStates::TransitionToPlayOnePlayer;
+    }
+    else if (NEA_GUIObjectGetEvent(this->PlayButton) == NEA_Clicked)
     {
         return MainMenuStates::PlaySelectionMenu;
     }

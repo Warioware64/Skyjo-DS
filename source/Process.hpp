@@ -16,6 +16,7 @@ class Process
         int cpu_number_arg;
         CPULevel cpu_level_arg;
         PartyType party_type_arg;
+        bool resumeRequested = false;
     public:
         Process();
         ~Process();
@@ -25,7 +26,9 @@ class Process
         std::string consoleUserName;
         GameSettings gamesettings;
         
+        void CallSaveSettings();
         void CallInitializationOnePlayerParty(int cpu_number, CPULevel cpu_level);
+        void CallResumeOnePlayerParty();
 
         void ProcessInit();
         void ProcessGame();

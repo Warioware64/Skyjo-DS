@@ -48,6 +48,7 @@ class GameParty
 
         void UnloadGamePartyAssets();
         void LoadGamePartyAssets();
+        void BuildGamePartyScene();
         void InitCardStack();
 
         void BuildControllers(int playerCount);
@@ -66,6 +67,8 @@ class GameParty
 
         std::vector<CardType> cardPreStack;
 
+        //int frameToSeconds = 0;
+        //std::chrono::seconds secondCount;
         NEA_Hw2DBG *hexBGtop;
         NEA_Hw2DBG *hexBGbot;
 
@@ -173,6 +176,7 @@ class GameParty
         touchPosition touchData;
 
         void InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyType party_arg);
+        void ResumeGamePartySituation();
         void RenderGameParty();
 
         // NOTE: 'controllers' is intentionally NOT serialized — it's a vector of

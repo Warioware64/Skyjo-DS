@@ -22,6 +22,9 @@ class MainSelectionMenu
         NEA_GUIObj *ResumeButton;
     public:
         bool resumableParty = false;
+        // Set when the Resume button is clicked; consumed by MainMenu at launch
+        // to load the saved party instead of starting a new one.
+        bool resumeSelected = false;
 
 
         void LoadAssetsMainSelectionMenu();

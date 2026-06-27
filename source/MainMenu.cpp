@@ -448,8 +448,16 @@ void MainMenu::RenderMainMenu()
         // layers / camera / particle assets are freed; the matching reload on
         // quit then starts from a clean slate.
         this->UnloadAssetsMainMenu();
-        process.CallInitializationOnePlayerParty(this->onePlayerParty.Get_player_number(),
-                                                 this->onePlayerParty.Get_CPULevel());
+        if (this->mainSelec.resumeSelected)
+        {
+            this->mainSelec.resumeSelected = false;
+            process.CallResumeOnePlayerParty();
+        }
+        else
+        {
+            process.CallInitializationOnePlayerParty(this->onePlayerParty.Get_player_number(),
+                                                     this->onePlayerParty.Get_CPULevel());
+        }
     }
 }
 MainMenu mainmenu;

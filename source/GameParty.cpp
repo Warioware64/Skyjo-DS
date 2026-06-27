@@ -641,6 +641,7 @@ void GameParty::BuildControllers(int n)
 void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyType party_arg)
 {
     this->cpuLevel = cpu_arg;
+    //this->frameToSeconds = 0;
     this->partyType = party_arg;
     this->playerCount = number_arg;
     this->Quited = false;
@@ -662,6 +663,7 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     this->prevKeydown = 0;
     this->initialRevealCount.fill(0);
 
+    //this->secondCount{0};
     this->LoadGamePartyAssets();
     this->InitCardStack();
     this->playerDeck.resize(number_arg);
@@ -702,6 +704,15 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
         this->cardStack.pop_back();
     }
 
+    this->BuildGamePartyScene();
+}
+
+// Creates the in-game sprites/OBJs, controllers and turns the screen on. Shared by
+// a fresh party (InitGamePartySituation) and a resumed one (ResumeGamePartySituation);
+// it only builds engine objects and reads no random state, so the caller is free to
+// have either generated or loaded the game state beforehand. Uses this->playerCount.
+void GameParty::BuildGamePartyScene()
+{
     int x = 112;
     int y = 25;
     for (size_t i = 0; i < 12; i++)
@@ -767,9 +778,56 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     NEA_SpriteSetPriority(this->heldCardSprite, 0);
     NEA_SpriteVisible(this->heldCardSprite, false);
 
-    this->BuildControllers(number_arg);
+    this->BuildControllers(this->playerCount);
 
     setBrightness(3, 0);
+}
+
+// Restore a previously suspended party from save_party.dat and rebuild the scene so
+// play continues exactly where it left off. Mirrors InitGamePartySituation but loads
+// state instead of generating it.
+void GameParty::ResumeGamePartySituation()
+{
+    std::error_code ec;
+    std::filesystem::path save_party(process.fatDeviceCPP + "_nds/SkyjoDS/save_party.dat");
+
+    // The Resume button is only shown when this file exists, but guard anyway:
+    // under -fno-exceptions a failed yas open calls std::abort().
+    if (!std::filesystem::exists(save_party, ec))
+    {
+        process.classstates = ClassStates::Init;
+        process.menustates = MenusStates::MainMenu;
+        return;
+    }
+
+    {
+        constexpr std::size_t yasFlag = yas::file | yas::binary | yas::no_header;
+        yas::file_istream yasInput(save_party.c_str());
+        yas::load<yasFlag>(yasInput, gameparty);
+    }
+
+    // Reset runtime fields that are intentionally not serialized.
+    this->StartMenu = false;
+    this->EndMenu = false;
+    this->Quited = false;
+    this->Restarted = false;
+    this->pausephase = PausePhase::PauseMenuMain;
+    this->finalScores.clear();
+    this->prevKeydown = 0;
+    for (int i = 0; i < 12; ++i) { this->popTimer[i] = 0; this->clearTimer[i] = 0; }
+
+    this->LoadGamePartyAssets();
+    this->BuildGamePartyScene();
+
+    // Reflect the loaded state on the freshly-created sprites/OBJs.
+    for (int s = 0; s < 12; ++s) this->RefreshMyHandSprite(s);
+    this->RefreshDiscardSprite();
+    this->RefreshTopScreen();
+    if (this->heldCard.has_value())
+    {
+        NEA_SpriteSetMaterial(this->heldCardSprite,
+                              sharedAssetsGameParty.GetCardMat(*this->heldCard));
+    }
 }
 
 void GameParty::RefreshMyHandSprite(int slot)
@@ -1073,6 +1131,11 @@ void GameParty::TickScoring()
         this->ComputeFinalScores();
         this->EndMenu = true;
         this->InitEndGameMenu();
+
+        // The party is over: drop any suspend save so Resume can't reload a
+        // finished game. (remove() doesn't go through yas, so no abort risk.)
+        std::error_code ec;
+        std::filesystem::remove(process.fatDeviceCPP + "_nds/SkyjoDS/save_party.dat", ec);
     }
 }
 
@@ -1138,6 +1201,14 @@ void GameParty::RenderGameParty()
 {
     while (1)
     {
+        /*
+        if (this->frameToSeconds == 60)
+        {
+            this->frameToSeconds = 0;
+            this->secondCount++;
+        }
+        this->frameToSeconds++;
+        */
         // The pause menu and the end-game leaderboard are both touch overlays:
         // they need the GUI updated and they suppress gameplay input/rendering.
         const bool overlay = this->StartMenu || this->EndMenu;
