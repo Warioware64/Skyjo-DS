@@ -41,7 +41,7 @@ arm9 = Arm9Binary(
     sourcedirs=['source'],
     includedirs=['source'],
     defines=defines_,
-    libs=['NEA', 'mm9', 'dswifi9', 'nds9'],
+    libs=['NEA', 'mm9', 'nds9', 'dswifi9d_noip'],
     libdirs=[
         '${BLOCKSDS}/libs/libnds',
         '${BLOCKSDS}/libs/maxmod',
