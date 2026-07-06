@@ -345,9 +345,20 @@ void GameParty::EndGameGUIlogic()
     {
         this->DestroyEndGameMenu();
         this->UnloadGamePartyAssets();
-        // Re-enter a fresh party with the same settings. This sets process
-        // classstates=Init / menustates=PartyGameOnePlayer and stores the args.
-        process.CallInitializationOnePlayerParty(this->playerCount, this->cpuLevel);
+        if (this->partyType == PartyType::LocalMultiplayer)
+        {
+            // Host replay: re-deal a fresh multiplayer game with the same roster
+            // and CPU config. The WiFi link stays live, so the redeal's first
+            // InitialReveal snapshot restarts every client automatically.
+            process.CallInitializationMultiplayerHost(this->playerCount, this->humanSeatCount,
+                                                      this->cpuLevel, this->namePlayers);
+        }
+        else
+        {
+            // Re-enter a fresh party with the same settings. This sets process
+            // classstates=Init / menustates=PartyGameOnePlayer and stores the args.
+            process.CallInitializationOnePlayerParty(this->playerCount, this->cpuLevel);
+        }
         this->Restarted = true;
     }
 
@@ -356,8 +367,19 @@ void GameParty::EndGameGUIlogic()
         this->DestroyEndGameMenu();
         this->UnloadGamePartyAssets();
         this->Quited = true;
-        mainmenu.mainmenustates = MainMenuStates::OnePlayerPartyStart;
-        mainmenu.bypassableChangeMenuStates = true;
+        if (this->partyType == PartyType::LocalMultiplayer)
+        {
+            // Leaving the host drops the link; clients see ClientLostHost and
+            // return to the menu on their own.
+            NetLink::Shutdown();
+            process.classstates = ClassStates::Init;
+            process.menustates = MenusStates::MainMenu;
+        }
+        else
+        {
+            mainmenu.mainmenustates = MainMenuStates::OnePlayerPartyStart;
+            mainmenu.bypassableChangeMenuStates = true;
+        }
     }
 }
 
@@ -634,11 +656,17 @@ void GameParty::BuildControllers(int n)
 
         case PartyType::LocalMultiplayer:
         case PartyType::OnlineMultiplayer:
-            // Host authority: seat 0 is the local human on this console; every
-            // other seat is driven by intents arriving over WiFi from its client.
+            // Host authority: seat 0 is the local human on this console; seats up
+            // to humanSeatCount are remote humans driven by WiFi intents; any
+            // remaining seats are host-run CPUs the host chose to add.
             this->controllers.push_back(std::make_unique<HumanTouchController>());
             for (int i = 1; i < n; ++i)
-                this->controllers.push_back(std::make_unique<RemoteController>(i));
+            {
+                if (i < this->humanSeatCount)
+                    this->controllers.push_back(std::make_unique<RemoteController>(i));
+                else
+                    this->controllers.push_back(std::make_unique<CpuController>(this->cpuLevel));
+            }
             break;
     }
 }
@@ -649,6 +677,7 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     //this->frameToSeconds = 0;
     this->partyType = party_arg;
     this->playerCount = number_arg;
+    this->humanSeatCount = 1; // single-player: only seat 0 is human
     this->Quited = false;
     this->EndMenu = false;
     this->Restarted = false;
@@ -696,6 +725,69 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
 
     for (int i = 1; i < number_arg; ++i)
         this->namePlayers.at(i) = cpuPool.at(i - 1);
+
+    for (auto& hand : this->playerDeck)
+    {
+        auto first = this->cardStack.end() - 12;
+        std::copy(first, this->cardStack.end(), hand.begin());
+        this->cardStack.erase(first, this->cardStack.end());
+    }
+
+    this->discardPile.clear();
+    if (!this->cardStack.empty())
+    {
+        this->discardPile.push_back(this->cardStack.back());
+        this->cardStack.pop_back();
+    }
+
+    this->BuildGamePartyScene();
+}
+
+// Local-multiplayer host launch. Mirrors InitGamePartySituation but the roster
+// names come from the lobby (real host/client console names, then CPU names) and
+// seats [humanCount, playerCnt) are host-run CPUs rather than random opponents.
+void GameParty::InitGamePartyHost(int playerCnt, int humanCount, CPULevel cpu_arg,
+                                  const std::vector<std::string>& names)
+{
+    this->cpuLevel = cpu_arg;
+    this->partyType = PartyType::LocalMultiplayer;
+    this->playerCount = playerCnt;
+    this->humanSeatCount = humanCount;
+    this->Quited = false;
+    this->EndMenu = false;
+    this->Restarted = false;
+    this->finalScores.clear();
+    this->partyFirstTwoDraw = true;
+    this->StartMenu = false;
+    this->awaitingDiscardReveal = false;
+    this->phase = GamePhase::InitialReveal;
+    this->animTick = 0;
+    for (int i = 0; i < 12; ++i) { this->popTimer[i] = 0; this->clearTimer[i] = 0; }
+    this->localPlayerIndex = 0; // host drives seat 0
+    this->netLastSnapshot.clear();
+    this->currentPlayerIndex = 0;
+    this->startingPlayerIndex = 0;
+    this->lastRoundTriggerPlayerIndex = std::nullopt;
+    this->drawSource = std::nullopt;
+    this->heldCard = std::nullopt;
+    this->topScreenViewPlayerIdx = (playerCnt > 1) ? 1 : 0;
+    this->prevKeydown = 0;
+    this->initialRevealCount.fill(0);
+
+    this->LoadGamePartyAssets();
+    this->InitCardStack();
+    this->playerDeck.resize(playerCnt);
+
+    std::array<CardReturn, 12> unreturnedRow;
+    unreturnedRow.fill(CardReturn::Unreturned);
+    this->cardReturns.assign(playerCnt, unreturnedRow);
+
+    // Use the roster verbatim (host + client names, then CPU names); pad if short.
+    this->namePlayers.assign(names.begin(), names.end());
+    this->namePlayers.resize(playerCnt);
+    for (int i = 0; i < playerCnt; ++i)
+        if (this->namePlayers.at(i).empty())
+            this->namePlayers.at(i) = "Player " + std::to_string(i + 1);
 
     for (auto& hand : this->playerDeck)
     {
@@ -822,6 +914,7 @@ void GameParty::ResumeGamePartySituation()
     this->finalScores.clear();
     this->prevKeydown = 0;
     this->localPlayerIndex = 0; // resumed games are always single-player
+    this->humanSeatCount = 1;   // single-player: only seat 0 is human
     this->netLastSnapshot.clear();
     for (int i = 0; i < 12; ++i) { this->popTimer[i] = 0; this->clearTimer[i] = 0; }
 
@@ -1249,13 +1342,27 @@ void GameParty::RenderGameParty()
         scanKeys();
         this->keydown = keysDown();
         touchRead(&this->touchData);
+        // The host can't pause: the pause overlay suspends GamePartyLogic while
+        // clients keep running off snapshots, so a host pause would freeze the
+        // networked game. Only single-player arms the pause menu; the host gets a
+        // clean KEY_SELECT quit instead (parity with the client), which drops the
+        // clients via HostLostClient/ClientLostHost.
         if (!overlay)
         {
-            if (this->keydown & KEY_START)
+            if (this->partyType == PartyType::OnePlayerCPU && (this->keydown & KEY_START))
             {
                 this->pausephase = PausePhase::PauseMenuMain;
                 this->StartMenu = true;
                 this->InitPauseMenuGUIbutton();
+            }
+            else if (this->partyType == PartyType::LocalMultiplayer &&
+                     (this->keydown & KEY_SELECT))
+            {
+                this->UnloadGamePartyAssets();
+                NetLink::Shutdown();
+                process.classstates = ClassStates::Init;
+                process.menustates = MenusStates::MainMenu;
+                break;
             }
             else
             {
@@ -1343,8 +1450,17 @@ void GameParty::NetHostBroadcastIfChanged()
 
 void GameParty::ApplySnapshot(const GameNetSnapshot& s)
 {
+    const int prevTurn = this->currentPlayerIndex;
     this->phase = static_cast<GamePhase>(s.phase);
     this->currentPlayerIndex = s.currentPlayerIndex;
+    // Auto-follow the top-screen view to the newly active player, mirroring the
+    // host's EndTurn behavior. Only on an actual turn change, so a client that is
+    // manually browsing opponents with L/R isn't yanked away every snapshot.
+    if (this->currentPlayerIndex != prevTurn &&
+        this->currentPlayerIndex != this->localPlayerIndex)
+    {
+        this->topScreenViewPlayerIdx = this->currentPlayerIndex;
+    }
     this->startingPlayerIndex = s.startingPlayerIndex;
     this->lastRoundTriggerPlayerIndex = (s.lastRoundTrigger == kNoIndex)
         ? std::nullopt : std::optional<int>(s.lastRoundTrigger);
@@ -1365,6 +1481,15 @@ void GameParty::ApplySnapshot(const GameNetSnapshot& s)
     int pc = static_cast<int>(s.hands.size());
     if (static_cast<int>(this->cardReturns.size()) < pc) this->cardReturns.resize(pc);
     if (static_cast<int>(this->playerDeck.size()) < pc) this->playerDeck.resize(pc);
+
+    // Remember the local hand's reveal states so we can detect the transitions the
+    // host animates locally (reveal pop / column-clear fade) and replay them here;
+    // the snapshot itself carries no animation, only the resulting state.
+    const int me = this->localPlayerIndex;
+    std::array<CardReturn, 12> prevMine{};
+    if (me >= 0 && me < static_cast<int>(this->cardReturns.size()))
+        prevMine = this->cardReturns.at(me);
+
     for (int p = 0; p < pc; ++p)
         for (int i = 0; i < 12; ++i)
         {
@@ -1373,13 +1498,65 @@ void GameParty::ApplySnapshot(const GameNetSnapshot& s)
                 this->playerDeck.at(p).at(i) = static_cast<CardType>(s.hands.at(p).at(i).value);
         }
 
+    // Trigger the bottom-screen animations for the local player's own hand from
+    // the state deltas (mirrors what the host does inline in TickTurn /
+    // ResolveColumnClears). Set the timers before RefreshMyHandSprite below, which
+    // early-returns while a clear fade owns the slot.
+    if (me >= 0 && me < pc)
+    {
+        for (int i = 0; i < 12; ++i)
+        {
+            CardReturn was = prevMine.at(i);
+            CardReturn now = this->cardReturns.at(me).at(i);
+            if (was == CardReturn::Unreturned && now == CardReturn::Returned)
+            {
+                this->popTimer[i] = kPopFrames;
+            }
+            else if (was != CardReturn::Cleared && now == CardReturn::Cleared)
+            {
+                // Keep the matched face visible and let AnimateHandSprites shrink
+                // and fade it before the slot is hidden.
+                NEA_SpriteSetMaterial(this->myPacket[i],
+                                      sharedAssetsGameParty.GetCardMat(this->playerDeck.at(me).at(i)));
+                NEA_SpriteVisible(this->myPacket[i], true);
+                this->clearTimer[i] = kClearFrames;
+                this->popTimer[i] = 0;
+            }
+        }
+    }
+
     this->finalScores.clear();
     for (int v : s.finalScores) this->finalScores.push_back(v);
+
+    // Client end-game / replay handling. When the host reaches Ended, show the
+    // read-only results leaderboard (host drives Replay/Exit). When the host
+    // replays, the fresh InitialReveal/Turns snapshot resets us into the new game.
+    if (this->phase == GamePhase::Ended)
+    {
+        if (!this->EndMenu)
+            for (int i = 0; i < 12; ++i) NEA_Hw2DOBJSetVisible(this->viewGame[i], false);
+        this->EndMenu = true;
+    }
+    else if (this->EndMenu &&
+             (this->phase == GamePhase::InitialReveal || this->phase == GamePhase::Turns))
+    {
+        this->EndMenu = false;
+        for (int i = 0; i < 12; ++i)
+        {
+            this->popTimer[i] = 0;
+            this->clearTimer[i] = 0;
+            NEA_SpriteSetScale(this->myPacket[i], 1.0f);
+            NEA_SpriteVisible(this->myPacket[i], true);
+        }
+    }
 
     // Reflect the new state on the sprites.
     for (int i = 0; i < 12; ++i) this->RefreshMyHandSprite(i);
     this->RefreshDiscardSprite();
-    this->RefreshTopScreen();
+    // While the client shows the results overlay the top-screen opponent OBJs stay
+    // hidden (parity with the host's InitEndGameMenu).
+    if (!this->EndMenu)
+        this->RefreshTopScreen();
     if (this->heldCard.has_value())
         NEA_SpriteSetMaterial(this->heldCardSprite,
                               sharedAssetsGameParty.GetCardMat(*this->heldCard));
@@ -1390,6 +1567,7 @@ void GameParty::InitGamePartyClient(int seatIndex, int playerCnt,
 {
     this->partyType = PartyType::LocalMultiplayer;
     this->playerCount = playerCnt;
+    this->humanSeatCount = playerCnt; // client renders from snapshots; controllers unused
     this->localPlayerIndex = seatIndex;
     this->Quited = false;
     this->EndMenu = false;

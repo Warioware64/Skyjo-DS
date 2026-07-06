@@ -1,5 +1,6 @@
 #include "MultiplayerJoinMenu.hpp"
 #include "../Net/NetLink.hpp"
+#include "../Process.hpp"
 
 namespace
 {
@@ -137,6 +138,16 @@ std::optional<MainMenuStates> MultiplayerJoinMenu::ProcessLogicMultiplayerJoinMe
 {
     // Keep replying in the MP cycle so our frames flow once connected.
     NetLink::ClientDriveCycle();
+
+    // Once associated, keep announcing our console name to the host so it can put
+    // real names in the roster. Resent every frame (cheap) until the game starts,
+    // which guarantees delivery even if a frame is dropped before the lobby locks.
+    if (NetLink::ClientAssociated())
+    {
+        GameNetHello hello;
+        hello.name = process.consoleUserName;
+        NetLink::ClientSendHello(hello);
+    }
 
     if (NEA_GUIObjectGetEvent(this->BackButton) == NEA_Clicked)
     {

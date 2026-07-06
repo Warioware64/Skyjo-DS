@@ -479,7 +479,10 @@ void MainMenu::RenderMainMenu()
         // to every client; just hand the player count to the game party. The
         // dswifi link stays live across the transition (it is IRQ-driven).
         this->UnloadAssetsMainMenu();
-        process.CallInitializationMultiplayerHost(this->multiplayerHostmenu.GetPlayerCount());
+        process.CallInitializationMultiplayerHost(this->multiplayerHostmenu.GetPlayerCount(),
+                                                  this->multiplayerHostmenu.GetHumanCount(),
+                                                  this->multiplayerHostmenu.GetCpuLevel(),
+                                                  this->multiplayerHostmenu.GetNames());
     }
     else if (this->triggerPlayPartyMultiplayerClient)
     {

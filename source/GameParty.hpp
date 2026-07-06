@@ -149,6 +149,9 @@ class GameParty
         CPULevel cpuLevel;
         PartyType partyType;
         int playerCount;
+        // Seats [0, humanSeatCount) are human (host + clients); seats
+        // [humanSeatCount, playerCount) are host-run CPUs. 1 for single-player.
+        int humanSeatCount;
 
         GamePhase phase;
         int currentPlayerIndex;
@@ -190,6 +193,10 @@ class GameParty
         int localPlayerIndex = 0;
 
         void InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyType party_arg);
+        // Local-multiplayer host: seats [0, humanCount) are human (host + clients,
+        // named from the roster), the rest are host-run CPUs.
+        void InitGamePartyHost(int playerCnt, int humanCount, CPULevel cpu_arg,
+                               const std::vector<std::string>& names);
         void ResumeGamePartySituation();
         void RenderGameParty();
 

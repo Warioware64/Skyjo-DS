@@ -20,6 +20,8 @@ class Process
 
         // Local-multiplayer launch parameters, filled by the host/join menus.
         int mp_player_count_arg = 0;
+        int mp_human_count_arg = 0;
+        CPULevel mp_cpu_level_arg = CPULevel::Easy;
         int mp_seat_arg = 0;
         std::vector<std::string> mp_names_arg;
     public:
@@ -37,7 +39,9 @@ class Process
 
         // Launch a local-multiplayer game (host runs the simulation; clients
         // mirror it). Called by the host/join lobby menus.
-        void CallInitializationMultiplayerHost(int player_count);
+        void CallInitializationMultiplayerHost(int player_count, int human_count,
+                                               CPULevel cpu_level,
+                                               const std::vector<std::string>& names);
         void CallInitializationMultiplayerClient(int seat, int player_count,
                                                  const std::vector<std::string>& names);
 

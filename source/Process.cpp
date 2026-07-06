@@ -47,11 +47,16 @@ void Process::CallResumeOnePlayerParty()
    this->resumeRequested = true;
 }
 
-void Process::CallInitializationMultiplayerHost(int player_count)
+void Process::CallInitializationMultiplayerHost(int player_count, int human_count,
+                                                CPULevel cpu_level,
+                                                const std::vector<std::string>& names)
 {
    this->classstates = ClassStates::Init;
    this->menustates = MenusStates::PartyGameMultiplayerHost;
    this->mp_player_count_arg = player_count;
+   this->mp_human_count_arg = human_count;
+   this->mp_cpu_level_arg = cpu_level;
+   this->mp_names_arg = names;
 }
 
 void Process::CallInitializationMultiplayerClient(int seat, int player_count,
@@ -193,8 +198,8 @@ void Process::ProcessGame()
         }
         else if (this->menustates == MenusStates::PartyGameMultiplayerHost)
         {
-            gameparty.InitGamePartySituation(this->mp_player_count_arg, CPULevel::Easy,
-                                             PartyType::LocalMultiplayer);
+            gameparty.InitGamePartyHost(this->mp_player_count_arg, this->mp_human_count_arg,
+                                        this->mp_cpu_level_arg, this->mp_names_arg);
             this->classstates = ClassStates::Playing;
         }
         else if (this->menustates == MenusStates::PartyGameMultiplayerClient)

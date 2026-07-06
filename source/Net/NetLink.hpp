@@ -45,6 +45,9 @@ namespace NetLink
     // Pop the most recent intent received from a client seat, if any.
     bool HostPollIntent(int seat, GameNetIntent& out);
 
+    // Pop the most recent lobby "hello" (console name) from a client seat, if any.
+    bool HostPollHello(int seat, GameNetHello& out);
+
     // True once a client that was connected during the game has dropped.
     bool HostLostClient();
 
@@ -72,6 +75,9 @@ namespace NetLink
     void ClientDriveCycle();
 
     void ClientSendIntent(const GameNetIntent& intent);
+
+    // Announce this console's player name to the host during the join lobby.
+    void ClientSendHello(const GameNetHello& hello);
 
     // Pop a pending game-start / snapshot message from the host, if any.
     bool ClientPollStart(GameNetStart& out);

@@ -24,6 +24,11 @@ namespace
     volatile int  g_intentLen[NetLink::kMaxClients + 1] = {};
     uint8_t       g_intentBuf[NetLink::kMaxClients + 1][kIntentCap];
 
+    // Host: most recent lobby "hello" (console name) per client seat.
+    volatile bool g_helloDirty[NetLink::kMaxClients + 1] = {};
+    volatile int  g_helloLen[NetLink::kMaxClients + 1] = {};
+    uint8_t       g_helloBuf[NetLink::kMaxClients + 1][kMsgCap];
+
     // Client: separate slots for start vs snapshot so one never clobbers the other.
     volatile bool g_startDirty = false;
     volatile int  g_startLen = 0;
@@ -48,12 +53,22 @@ namespace
         if (aid < 1 || aid > NetLink::kMaxClients) return;
 
         Wifi_RxRawReadPacket(base, len, g_rxScratch);
-        if (g_rxScratch[0] != static_cast<uint8_t>(NetMsgType::Intent)) return;
-        if (len > kIntentCap) return;
-
-        memcpy(const_cast<uint8_t*>(g_intentBuf[aid]), g_rxScratch, len);
-        g_intentLen[aid] = len;
-        g_intentDirty[aid] = true;
+        switch (static_cast<NetMsgType>(g_rxScratch[0]))
+        {
+            case NetMsgType::Intent:
+                if (len > kIntentCap) return;
+                memcpy(const_cast<uint8_t*>(g_intentBuf[aid]), g_rxScratch, len);
+                g_intentLen[aid] = len;
+                g_intentDirty[aid] = true;
+                break;
+            case NetMsgType::Hello:
+                memcpy(const_cast<uint8_t*>(g_helloBuf[aid]), g_rxScratch, len);
+                g_helloLen[aid] = len;
+                g_helloDirty[aid] = true;
+                break;
+            default:
+                break;
+        }
     }
 
     void FromHostHandler(Wifi_MPPacketType type, int base, int len)
@@ -152,7 +167,7 @@ namespace NetLink
         Wifi_MultiplayerAllowNewClients(true);
         Wifi_BeaconStart("SKYJO", kSkyjoGameId);
 
-        for (int i = 0; i <= kMaxClients; ++i) g_intentDirty[i] = false;
+        for (int i = 0; i <= kMaxClients; ++i) { g_intentDirty[i] = false; g_helloDirty[i] = false; }
         g_isHost = true;
         g_isClient = false;
         g_hostLost = false;
@@ -214,6 +229,13 @@ namespace NetLink
         if (!g_isHost || seat < 1 || seat > kMaxClients) return false;
         return PollInto(g_intentDirty[seat], const_cast<const uint8_t*>(g_intentBuf[seat]),
                         g_intentLen[seat], out);
+    }
+
+    bool HostPollHello(int seat, GameNetHello& out)
+    {
+        if (!g_isHost || seat < 1 || seat > kMaxClients) return false;
+        return PollInto(g_helloDirty[seat], const_cast<const uint8_t*>(g_helloBuf[seat]),
+                        g_helloLen[seat], out);
     }
 
     bool HostLostClient()
@@ -320,6 +342,15 @@ namespace NetLink
         yas::shared_buffer sb = yas::save<kYasNetFlag>(intent);
         uint8_t frame[kMsgCap];
         int len = FrameMessage(frame, NetMsgType::Intent, sb);
+        if (len > 0) Wifi_MultiplayerClientToHostDataTxFrame(frame, len);
+    }
+
+    void ClientSendHello(const GameNetHello& hello)
+    {
+        if (!g_isClient) return;
+        yas::shared_buffer sb = yas::save<kYasNetFlag>(hello);
+        uint8_t frame[kMsgCap];
+        int len = FrameMessage(frame, NetMsgType::Hello, sb);
         if (len > 0) Wifi_MultiplayerClientToHostDataTxFrame(frame, len);
     }
 

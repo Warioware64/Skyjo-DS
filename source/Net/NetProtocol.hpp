@@ -28,6 +28,16 @@ enum class NetMsgType : uint8_t
     Start    = 1, // host -> client, sent once when the game begins
     Snapshot = 2, // host -> client, sent on every state change
     Intent   = 3, // client -> host, sent when the local player acts
+    Hello    = 4, // client -> host, sent in the lobby to announce the console name
+};
+
+// Sent repeatedly by a client while in the join lobby so the host can build the
+// roster with the real player names instead of "Player N" placeholders.
+struct GameNetHello
+{
+    std::string name;
+
+    YAS_DEFINE_STRUCT_SERIALIZE("GameNetHello", name);
 };
 
 // One hand slot as seen by a client: its reveal state plus the card value, which
