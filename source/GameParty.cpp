@@ -1,6 +1,7 @@
 #include "GameParty.hpp"
 #include "MainMenu.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
+#include "Music.hpp"
 #include "globalHeader.hpp"
 #include "GamePartyClasses/HumanTouchController.hpp"
 #include "GamePartyClasses/CpuController.hpp"
@@ -405,6 +406,11 @@ void GameParty::EndGameGUIlogic()
 
 void GameParty::UnloadGamePartyAssets()
 {
+    // Stop the in-game music before leaving the party (back to the menu, replay,
+    // or a lost-host bail-out). Idempotent, so the several exit routes that all
+    // call this are safe. The menu restarts its own track on re-entry.
+    Music::Stop();
+
     // Tear down in reverse dependency order: live instances (sprites + OBJs)
     // must go before the assets they reference. NEA_Hw2DOBJAssetDelete() is a
     // silent no-op while any OBJ is still bound, so deleting the viewGame[]
@@ -637,6 +643,11 @@ void GameParty::LoadGamePartyAssets()
     this->NotPossibleIconPal = NEA_PaletteCreate();
 
     NEA_MaterialTexLoadGRF(this->NotPossibleIconMat, this->NotPossibleIconPal, NEA_TEXGEN_TEXCOORD, "ingame/clear_png.grf");
+
+    // Start the in-game music loop. All party modes (single player, multiplayer
+    // host and client) funnel through here, so this is the single start point.
+    // Honors the music-volume setting (0% plays silently).
+    Music::Play(Music::GamePartyTrack);
 }
 
 void GameParty::InitCardStack()
@@ -1362,6 +1373,10 @@ void GameParty::RenderGameParty()
             NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D));
         }
 
+        // Keep the music stream's circular buffer topped up every frame
+        // (covers both the overlay and normal branches above).
+        Music::Pump();
+
         scanKeys();
         this->keydown = keysDown();
         touchRead(&this->touchData);
@@ -1636,6 +1651,9 @@ void GameParty::RenderGamePartyClient()
     while (1)
     {
         NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D));
+
+        // Keep the music stream's circular buffer topped up every frame.
+        Music::Pump();
 
         scanKeys();
         this->keydown = keysDown();

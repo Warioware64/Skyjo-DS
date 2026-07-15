@@ -1,18 +1,20 @@
-#include "MenuMusic.hpp"
+#include "Music.hpp"
 #include "globalHeader.hpp"   // <NEAMain.h> -> NEASound.h -> maxmod9.h, plus <nds.h>/<filesystem.h>
 #include "Process.hpp"        // global `process` (gamesettings.musicSoundVolume)
 
-#include <cstring>            // memcpy
+#include <cstring>            // memcpy, strcmp
 #include <cstdio>             // FILE*, fopen/fread/fseek/feof/fclose
 
 // WAV streaming ported from the Nitro Engine Advanced example
-// (examples/sound/streaming/source/main.c). mainMenu.wav is 16-bit stereo
-// 11025 Hz PCM with a canonical 44-byte header, so the PCM data begins at
-// sizeof(WAVHeader) and looping is just a seek back to that offset on EOF.
+// (examples/sound/streaming/source/main.c). The menu and game tracks are both
+// 16-bit stereo 11025 Hz PCM with a canonical 44-byte header, so the PCM data
+// begins at sizeof(WAVHeader) and looping is just a seek back to that offset on
+// EOF.
 //
 // The streaming callback runs inside a timer interrupt (MM_TIMER0), so it must
 // only copy from the circular buffer and never touch the filesystem. The file
-// reads happen from MenuMusic::Pump(), driven once per frame by the menu loop.
+// reads happen from Music::Pump(), driven once per frame by the active render
+// loop. Only one stream exists at a time; switching tracks stops the old one.
 
 namespace
 {
@@ -40,12 +42,13 @@ namespace
 
     constexpr int BUFFER_LENGTH = 16384;
 
-    FILE *wavFile = nullptr;
-    char  stream_buffer[BUFFER_LENGTH];
-    int   stream_buffer_in = 0;
-    int   stream_buffer_out = 0;
-    bool  active = false;
-    bool  inited = false;
+    FILE       *wavFile = nullptr;
+    const char *currentPath = nullptr;
+    char        stream_buffer[BUFFER_LENGTH];
+    int         stream_buffer_in = 0;
+    int         stream_buffer_out = 0;
+    bool        active = false;
+    bool        inited = false;
 
     mm_word streamingCallback(mm_word length, mm_addr dest,
                               mm_stream_formats format)
@@ -139,7 +142,7 @@ namespace
     }
 }
 
-void MenuMusic::InitOnce()
+void Music::InitOnce()
 {
     if (inited)
         return;
@@ -159,14 +162,18 @@ void MenuMusic::InitOnce()
     inited = true;
 }
 
-void MenuMusic::Start()
+void Music::Play(const char *path)
 {
     if (active)
-        return;
+    {
+        if (currentPath != nullptr && strcmp(currentPath, path) == 0)
+            return;      // already playing this track
+        Music::Stop();   // switch to a different track
+    }
 
     // This build is compiled with -fno-exceptions, so on any failure we bail
-    // out cleanly and leave the menu silent rather than aborting.
-    wavFile = fopen("nitro:/music/mainMenu.wav", "rb");
+    // out cleanly and leave things silent rather than aborting.
+    wavFile = fopen(path, "rb");
     if (wavFile == nullptr)
         return;
 
@@ -187,17 +194,18 @@ void MenuMusic::Start()
                    getMMStreamType(header.numChannels, header.bitsPerSample),
                    MM_TIMER0);
     active = true;
+    currentPath = path;
 
-    MenuMusic::ApplyVolume();
+    Music::ApplyVolume();
 }
 
-void MenuMusic::Pump()
+void Music::Pump()
 {
     if (active)
         streamingFillBuffer(false);
 }
 
-void MenuMusic::Stop()
+void Music::Stop()
 {
     if (!active)
         return;
@@ -210,10 +218,11 @@ void MenuMusic::Stop()
     }
     stream_buffer_in = 0;
     stream_buffer_out = 0;
+    currentPath = nullptr;
     active = false;
 }
 
-void MenuMusic::ApplyVolume()
+void Music::ApplyVolume()
 {
     if (!active)
         return;

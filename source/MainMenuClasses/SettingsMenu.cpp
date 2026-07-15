@@ -1,6 +1,6 @@
 #include "SettingsMenu.hpp"
 #include "../Process.hpp"
-#include "../MenuMusic.hpp"
+#include "../Music.hpp"
 
 
 void SettingsMenu::LoadAssetsSettingsMenu()
@@ -176,8 +176,8 @@ std::optional<MainMenuStates> SettingsMenu::ProcessLogicSettingsMenu()
         this->decrementMusic = 0;
     }
 
-    // Reflect the new music volume on the running menu stream immediately.
-    MenuMusic::ApplyVolume();
+    // Reflect the new music volume on the running stream immediately.
+    Music::ApplyVolume();
 
     if (NEA_GUIObjectGetEvent(this->NextPlayerSoundButton) == NEA_Held)
     {
