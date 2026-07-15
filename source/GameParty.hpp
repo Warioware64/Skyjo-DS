@@ -134,6 +134,11 @@ class GameParty
         uint8_t popTimer[12];
         uint8_t clearTimer[12];
 
+        // Countdown that pauses turn logic right after a hand-off (set in
+        // EndTurn), so the next player's turn doesn't start on the very next
+        // frame. Host-side only; clients mirror the frozen state via snapshots.
+        int turnTransitionFrames = 0;
+
         NEA_Sprite *myPacket[12];
         NEA_Sprite *pullpacket[2];
         NEA_Sprite *pullpacketIconNot[2];

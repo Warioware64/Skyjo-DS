@@ -10,9 +10,9 @@ int CpuController::DelayFor(CPULevel l) const
 {
     switch (l)
     {
-        case CPULevel::Easy:   return 45;
-        case CPULevel::Medium: return 35;
-        case CPULevel::Hard:   return 25;
+        case CPULevel::Easy:   return 80;
+        case CPULevel::Medium: return 60;
+        case CPULevel::Hard:   return 45;
     }
     return 30;
 }

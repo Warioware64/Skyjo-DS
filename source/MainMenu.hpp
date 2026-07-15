@@ -34,6 +34,11 @@ class MainMenu
         // to reorder NEA_SpriteDraw calls.
         NEA_Hw2DBG *hexBGtop;
         NEA_Hw2DBG *hexBGbot;
+        // The hex BG layers are created once and intentionally kept alive across
+        // game launches (UnloadAssetsMainMenu's deletes are commented out). Guard
+        // re-creation: NEA_Hw2DBGCreate over a still-claimed layer returns NULL and
+        // the next BG call data-aborts (hit when exiting a multiplayer game).
+        bool bgLayersCreated = false;
 
         NEA_Material *hexParMat;
         NEA_Palette *hexParPal;

@@ -128,19 +128,29 @@ void MainMenu::LoadAssetsMainMenu()
         this->triggerCanTouchDetect = false;
         this->frameTouchDetect = 0;
 
-        this->hexBGtop = NEA_Hw2DBGCreate(NEA_ENGINE_MAIN, 1,
-                                        NEA_HW2D_BG_TILED_8BPP, 256, 256);
-        NEA_Hw2DBGSetPriority(this->hexBGtop, 3);
+        // Create the BG layers only once. They are never deleted (see
+        // UnloadAssetsMainMenu), so on a re-entry the layers are still claimed;
+        // calling NEA_Hw2DBGCreate again would return NULL and the following BG
+        // calls would data-abort. This bit me on multiplayer exit, which returns
+        // here with bypassableChangeMenuStates == false.
+        if (!this->bgLayersCreated)
+        {
+            this->hexBGtop = NEA_Hw2DBGCreate(NEA_ENGINE_MAIN, 1,
+                                            NEA_HW2D_BG_TILED_8BPP, 256, 256);
+            NEA_Hw2DBGSetPriority(this->hexBGtop, 3);
 
-        NEA_Hw2DBGLoadGRFFAT(this->hexBGtop, "mainmenu/hex_background2_png.grf", 0);
-        NEA_Hw2DBGSetVisible(this->hexBGtop, true);
+            NEA_Hw2DBGLoadGRFFAT(this->hexBGtop, "mainmenu/hex_background2_png.grf", 0);
+            NEA_Hw2DBGSetVisible(this->hexBGtop, true);
 
-        this->hexBGbot = NEA_Hw2DBGCreate(NEA_ENGINE_SUB, 0,
-                                           NEA_HW2D_BG_TILED_8BPP, 256, 256);
-        NEA_Hw2DBGSetPriority(this->hexBGbot, 3);
-        NEA_Hw2DBGLoadGRFFAT(this->hexBGbot, "mainmenu/hex_background_png.grf", 1);
+            this->hexBGbot = NEA_Hw2DBGCreate(NEA_ENGINE_SUB, 0,
+                                               NEA_HW2D_BG_TILED_8BPP, 256, 256);
+            NEA_Hw2DBGSetPriority(this->hexBGbot, 3);
+            NEA_Hw2DBGLoadGRFFAT(this->hexBGbot, "mainmenu/hex_background_png.grf", 1);
 
-        NEA_Hw2DBGSetVisible(this->hexBGbot, true);
+            NEA_Hw2DBGSetVisible(this->hexBGbot, true);
+
+            this->bgLayersCreated = true;
+        }
     }
     else
     {

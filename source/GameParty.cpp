@@ -20,6 +20,10 @@ namespace
     // Card animation tuning (frames at ~60fps).
     constexpr int kPopFrames = 9;    // reveal/replace "pop"
     constexpr int kClearFrames = 14; // column-clear fade-out
+
+    // Pause after a turn ends before the next player acts, so the hand-off (and
+    // the "Your turn"/"X is playing" banner) is readable instead of instant.
+    constexpr int kTurnTransitionFrames = 45;
 }
 
 GameParty::GameParty()
@@ -40,7 +44,11 @@ void GameParty::GamePartyLogic()
     {
         case GamePhase::InitialReveal: TickInitialReveal(); break;
         case GamePhase::Turns:
-        case GamePhase::LastRound:     TickTurn();          break;
+        case GamePhase::LastRound:
+            // Hold briefly after a hand-off so the turn change is readable.
+            if (this->turnTransitionFrames > 0) { --this->turnTransitionFrames; break; }
+            TickTurn();
+            break;
         case GamePhase::Scoring:       TickScoring();       break;
         case GamePhase::Ended:                              break;
     }
@@ -249,12 +257,24 @@ void GameParty::GamePartyLogicRender()
     {
         NEA_RichTextRender3D(0, "Place the card \n", 120, 15);
     }
-    else 
+    else
     {
         NEA_RichTextRender3D(0, "<L", 10, 3);
         //NEA_RichTextRender3D(0, ("<L"), 10, 3);
         NEA_RichTextRender3D(0, "R>", 230, 1);
         NEA_RichTextRender3D(0, this->namePlayers.at(this->topScreenViewPlayerIdx).c_str(), 120, 2);
+
+        // Whose turn it is (bottom-screen prompt line). This is the active player
+        // currentPlayerIndex, not the L/R-browsed topScreenViewPlayerIdx above.
+        if (this->currentPlayerIndex == this->localPlayerIndex)
+        {
+            NEA_RichTextRender3D(0, "Your turn", 90, 15);
+        }
+        else
+        {
+            std::string turnMsg = this->namePlayers.at(this->currentPlayerIndex) + " is playing";
+            NEA_RichTextRender3D(0, turnMsg.c_str(), 90, 15);
+        }
     }
     NEA_SpriteDrawAll();
 
@@ -1209,6 +1229,9 @@ void GameParty::EndTurn(int p)
     }
 
     this->currentPlayerIndex = nextIdx;
+    // Brief pause before the next player acts (see GamePartyLogic). Not set on
+    // the Scoring path above, which returns early.
+    this->turnTransitionFrames = kTurnTransitionFrames;
     if (nextIdx != this->localPlayerIndex)
     {
         this->topScreenViewPlayerIdx = nextIdx;
