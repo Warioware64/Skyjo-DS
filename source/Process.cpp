@@ -2,6 +2,7 @@
 #include "DebugPrint.hpp"
 #include "GameParty.hpp"
 #include "MainMenu.hpp"
+#include "MenuMusic.hpp"
 #include "globalHeader.hpp"
 
 
@@ -138,6 +139,10 @@ void Process::ProcessInit()
 
     NEA_Init3D();
     NEA_MainScreenSetOnBottom();
+
+    // Bring up maxmod once (no soundbank) so the main menu can stream its music.
+    // Runs after nitroFSInit above, which the streaming file reads depend on.
+    MenuMusic::InitOnce();
 
     NEA_SetTexPaletteBank(static_cast<NEA_VRAMBankFlags>(NEA_VRAM_F | NEA_VRAM_G));
     NEA_TextureSystemReset(0, 0, static_cast<NEA_VRAMBankFlags>(NEA_VRAM_AB));

@@ -35,6 +35,10 @@ nitrofs.add_ptexconv(['resources/inGame/'],      out_dir='ingame/')
 #nitrofs.add_grit(['resources/cards/card2/'],  out_dir='cards/')
 nitrofs.add_bmfont_fnt(['resources/MainMenu/font/'],    out_dir='mainmenu/font/')
 nitrofs.add_files_unchanged(['resources/MainMenu/hex/'], out_dir='mainmenu/hex/')
+# Streaming main-menu music (raw WAV, read at runtime via mmStream). Copies the
+# whole folder, so the tiny _LICENSE.txt / _README.txt attribution files ride
+# along into the image too (harmless).
+nitrofs.add_files_unchanged(['resources/music/'], out_dir='music/')
 nitrofs.generate_image()
 
 arm9 = Arm9Binary(

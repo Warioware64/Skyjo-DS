@@ -1,6 +1,7 @@
 #include "MainMenu.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
 #include "MainMenuClasses/MainSelectionMenu.hpp"
+#include "MenuMusic.hpp"
 #include "Process.hpp"
 #include "globalHeader.hpp"
 
@@ -228,6 +229,11 @@ void MainMenu::LoadAssetsMainMenu()
     // Per-screen materials/palettes are created in each sub-menu's own
     // LoadAssets* and freed in the matching UnloadAssets* — creating them
     // here once would leave dangling handles after the first Unload.
+
+    // Start the looping menu music (both the normal and bypass re-entry paths
+    // fall through to here). No-op if already playing; honors the music-volume
+    // setting, so 0% simply plays silently.
+    MenuMusic::Start();
 }
 
 // Symmetric teardown for LoadAssetsMainMenu(). Must run before leaving the menu
@@ -237,6 +243,10 @@ void MainMenu::LoadAssetsMainMenu()
 // Intro::UnloadAssetsIntro() pattern. Delete in reverse creation order.
 void MainMenu::UnloadAssetsMainMenu()
 {
+    // Stop the menu music before leaving the menu (e.g. launching a party). It
+    // restarts from the loop point on the next LoadAssetsMainMenu().
+    MenuMusic::Stop();
+
     //NEA_Hw2DBGDelete(this->hexBGbot);
     //NEA_Hw2DBGDelete(this->hexBGtop);
 
@@ -276,6 +286,9 @@ void MainMenu::RenderMainMenu()
             NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_GUI | NEA_UPDATE_PARTICLES));
         else
             NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_PARTICLES));
+
+        // Keep the music stream's circular buffer topped up every frame.
+        MenuMusic::Pump();
 
         scanKeys();
         this->keys = keysDown();
