@@ -1,4 +1,5 @@
 #include "GameParty.hpp"
+#include "GuiClickSound.hpp"
 #include "MainMenu.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
 #include "Music.hpp"
@@ -88,20 +89,20 @@ void GameParty::PauseMenuGUIlogic()
 {
     if (this->pausephase == PausePhase::PauseMenuMain)
     {
-        if ( (NEA_GUIObjectGetEvent(this->ContinueButton)) == NEA_Clicked)
+        if ( GuiClicked(this->ContinueButton))
         {
             this->DestroyPauseMenuMain();
             this->RefreshTopScreen();
             this->StartMenu = false;
         }
-        else if ( (NEA_GUIObjectGetEvent(this->QuitButton)) == NEA_Clicked)
+        else if ( GuiClicked(this->QuitButton))
         {
             this->pausephase = PausePhase::QuitMenu;
             this->DestroyPauseMenuMain();
             this->InitQuitMenu();
             
         }
-        else if ( (NEA_GUIObjectGetEvent(this->SaveButton)) == NEA_Clicked)
+        else if ( GuiClicked(this->SaveButton))
         {
             this->pausephase = PausePhase::SaveMenu;
             this->DestroyPauseMenuMain();
@@ -111,14 +112,14 @@ void GameParty::PauseMenuGUIlogic()
     }
     else if (this->pausephase == PausePhase::QuitMenu)
     {
-        if ( (NEA_GUIObjectGetEvent(this->NoButton)) == NEA_Clicked)
+        if ( GuiClicked(this->NoButton))
         {
             this->DestroyQuitMenu();
             this->pausephase = PausePhase::PauseMenuMain;
             this->InitPauseMenuGUIbutton();
         }
         
-        if ( (NEA_GUIObjectGetEvent(this->YesButton)) == NEA_Clicked)
+        if ( GuiClicked(this->YesButton))
         {
             this->DestroyQuitMenu();
             this->UnloadGamePartyAssets();
@@ -139,14 +140,14 @@ void GameParty::PauseMenuGUIlogic()
     }
     else if (this->pausephase == PausePhase::SaveMenu)
     {
-        if ( (NEA_GUIObjectGetEvent(this->NoButton)) == NEA_Clicked)
+        if ( GuiClicked(this->NoButton))
         {
             this->DestroyQuitMenu();
             this->pausephase = PausePhase::PauseMenuMain;
             this->InitPauseMenuGUIbutton();
         }
         
-        if ( (NEA_GUIObjectGetEvent(this->YesButton)) == NEA_Clicked)
+        if ( GuiClicked(this->YesButton))
         {
             this->DestroyQuitMenu();
             this->UnloadGamePartyAssets();
@@ -362,7 +363,7 @@ void GameParty::DestroyEndGameMenu()
 
 void GameParty::EndGameGUIlogic()
 {
-    if (NEA_GUIObjectGetEvent(this->ReplayButton) == NEA_Clicked)
+    if (GuiClicked(this->ReplayButton))
     {
         this->DestroyEndGameMenu();
         this->UnloadGamePartyAssets();
@@ -383,7 +384,7 @@ void GameParty::EndGameGUIlogic()
         this->Restarted = true;
     }
 
-    if (NEA_GUIObjectGetEvent(this->ExitButton) == NEA_Clicked)
+    if (GuiClicked(this->ExitButton))
     {
         this->DestroyEndGameMenu();
         this->UnloadGamePartyAssets();
@@ -643,6 +644,13 @@ void GameParty::LoadGamePartyAssets()
     this->NotPossibleIconPal = NEA_PaletteCreate();
 
     NEA_MaterialTexLoadGRF(this->NotPossibleIconMat, this->NotPossibleIconPal, NEA_TEXGEN_TEXCOORD, "ingame/clear_png.grf");
+
+    // Fresh SFX event state for this game: host authoritative counters, and the
+    // client's edge-detect baseline (sfxSeenInit re-primed on the first snapshot).
+    // All party modes funnel through here, so this is the single reset point.
+    this->sfxPoseCount = this->sfxTakeCount = this->sfxClearCount = 0;
+    this->sfxPoseSeen  = this->sfxTakeSeen  = this->sfxClearSeen  = 0;
+    this->sfxSeenInit  = false;
 
     // Start the in-game music loop. All party modes (single player, multiplayer
     // host and client) funnel through here, so this is the single start point.
@@ -1083,6 +1091,7 @@ void GameParty::TickInitialReveal()
 
         this->cardReturns.at(p).at(*slot) = CardReturn::Returned;
         this->initialRevealCount[p]++;
+        this->EmitSfx(SfxKind::Take); // initial face-down reveal
 
         if (p == this->localPlayerIndex) { this->RefreshMyHandSprite(*slot); this->popTimer[*slot] = kPopFrames; }
         if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
@@ -1128,6 +1137,7 @@ void GameParty::TickTurn()
             if (!slot) return;
             if (this->cardReturns.at(p).at(*slot) != CardReturn::Unreturned) return;
             this->cardReturns.at(p).at(*slot) = CardReturn::Returned;
+            this->EmitSfx(SfxKind::Take); // forced reveal after discarding a drawn card
             if (p == this->localPlayerIndex) { this->RefreshMyHandSprite(*slot); this->popTimer[*slot] = kPopFrames; }
             if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
             this->ResolveColumnClears(p);
@@ -1171,6 +1181,7 @@ void GameParty::TickTurn()
             this->discardPile.pop_back();
             this->RefreshDiscardSprite();
         }
+        this->EmitSfx(SfxKind::Take); // drew a card from the stack or discard pile
         NEA_SpriteSetMaterial(this->heldCardSprite,
                               sharedAssetsGameParty.GetCardMat(*this->heldCard));
         return;
@@ -1212,6 +1223,7 @@ void GameParty::TickTurn()
         actedSlot = *slot;
     }
 
+    this->EmitSfx(SfxKind::Pose); // placed the held card into the grid (both draw sources)
     if (p == this->localPlayerIndex) { this->RefreshMyHandSprite(actedSlot); this->popTimer[actedSlot] = kPopFrames; }
     if (p == this->topScreenViewPlayerIdx) this->RefreshTopScreen();
     this->RefreshDiscardSprite();
@@ -1276,6 +1288,20 @@ void GameParty::TickScoring()
     }
 }
 
+void GameParty::EmitSfx(SfxKind kind)
+{
+    // Host / single-player: play the effect locally right now, and bump the
+    // matching authoritative counter so a multiplayer client can replay it from
+    // the snapshot (see BuildSnapshot / ApplySnapshot). The client never runs the
+    // authoritative logic, so it never calls this — no double-play.
+    switch (kind)
+    {
+        case SfxKind::Pose:  Music::SfxPoseCard();    ++this->sfxPoseCount;  break;
+        case SfxKind::Take:  Music::SfxTakeCard();    ++this->sfxTakeCount;  break;
+        case SfxKind::Clear: Music::SfxClearColumn(); ++this->sfxClearCount; break;
+    }
+}
+
 void GameParty::ResolveColumnClears(int playerIdx)
 {
     // Skyjo column-clear rule: when the 3 cards of a vertical column are all
@@ -1302,6 +1328,7 @@ void GameParty::ResolveColumnClears(int playerIdx)
         ret.at(a) = CardReturn::Cleared;
         ret.at(b) = CardReturn::Cleared;
         ret.at(d) = CardReturn::Cleared;
+        this->EmitSfx(SfxKind::Clear); // once per cleared column
 
         if (playerIdx == this->localPlayerIndex)
         {
@@ -1452,6 +1479,11 @@ GameNetSnapshot GameParty::BuildSnapshot() const
         ? kNoCard : static_cast<int8_t>(static_cast<int>(this->discardPile.back()));
     s.cardStackCount = static_cast<uint16_t>(this->cardStack.size());
 
+    // Authoritative SFX counters; the client replays effects on change.
+    s.sfxPose  = this->sfxPoseCount;
+    s.sfxTake  = this->sfxTakeCount;
+    s.sfxClear = this->sfxClearCount;
+
     s.hands.resize(this->playerCount);
     for (int p = 0; p < this->playerCount; ++p)
     {
@@ -1561,6 +1593,24 @@ void GameParty::ApplySnapshot(const GameNetSnapshot& s)
                 this->popTimer[i] = 0;
             }
         }
+    }
+
+    // Replay the host's one-shot SFX from the authoritative counters. Edge-detect
+    // with != so it survives snapshot coalescing (multiple host ticks collapse
+    // into one applied snapshot); the first applied snapshot only primes the seen
+    // values, so joining mid-game doesn't fire a spurious burst.
+    if (!this->sfxSeenInit)
+    {
+        this->sfxPoseSeen  = s.sfxPose;
+        this->sfxTakeSeen  = s.sfxTake;
+        this->sfxClearSeen = s.sfxClear;
+        this->sfxSeenInit  = true;
+    }
+    else
+    {
+        if (s.sfxPose  != this->sfxPoseSeen)  { Music::SfxPoseCard();    this->sfxPoseSeen  = s.sfxPose;  }
+        if (s.sfxTake  != this->sfxTakeSeen)  { Music::SfxTakeCard();    this->sfxTakeSeen  = s.sfxTake;  }
+        if (s.sfxClear != this->sfxClearSeen) { Music::SfxClearColumn(); this->sfxClearSeen = s.sfxClear; }
     }
 
     this->finalScores.clear();

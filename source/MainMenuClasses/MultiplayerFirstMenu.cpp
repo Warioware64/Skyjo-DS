@@ -1,4 +1,5 @@
 #include "MultiplayerFirstMenu.hpp"
+#include "../GuiClickSound.hpp"
 #include "MainMenuStates.hpp"
 
 void MultiplayerFirstMenu::LoadAssetsMultiplayerFirstMenu()
@@ -86,15 +87,15 @@ void MultiplayerFirstMenu::UnloadAssetsMultiplayerFirstMenu()
 
 std::optional<MainMenuStates> MultiplayerFirstMenu::ProcessLogicMultiplayerFirstMenu()
 {
-    if (NEA_GUIObjectGetEvent(this->BackButton) == NEA_Clicked)
+    if (GuiClicked(this->BackButton))
     {
         return MainMenuStates::PlaySelectionMenu;
     }
-    else if (NEA_GUIObjectGetEvent(this->HostButton) == NEA_Clicked)
+    else if (GuiClicked(this->HostButton))
     {
         return MainMenuStates::MultiplayerHostMenu;
     }
-    else if (NEA_GUIObjectGetEvent(this->JoinButton) == NEA_Clicked)
+    else if (GuiClicked(this->JoinButton))
     {
         return MainMenuStates::MultiplayerJoinMenu;
     }

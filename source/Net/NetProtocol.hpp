@@ -75,12 +75,20 @@ struct GameNetSnapshot
     int8_t  discardTop  = kNoCard;  // top of the discard pile
     uint16_t cardStackCount = 0;    // draw-pile height (for rendering only)
 
+    // Monotonic SFX event counters. The host bumps one each time a sound-worthy
+    // event happens; the client plays the matching effect when a counter changes
+    // (edge-detected, so it survives snapshot coalescing).
+    uint16_t sfxPose  = 0; // card placed into the grid
+    uint16_t sfxTake  = 0; // card taken from a pile, or revealed
+    uint16_t sfxClear = 0; // a full matching column cleared
+
     std::vector<std::array<NetSlot, 12>> hands; // one row per player
     std::vector<int32_t> finalScores;           // only populated at scoring/end
 
     YAS_DEFINE_STRUCT_SERIALIZE("GameNetSnapshot", phase, playerCount,
         currentPlayerIndex, startingPlayerIndex, lastRoundTrigger,
         awaitingDiscardReveal, drawSource, heldCard, discardTop, cardStackCount,
+        sfxPose, sfxTake, sfxClear,
         hands, finalScores);
 };
 

@@ -1,4 +1,5 @@
 #include "MultiplayerJoinMenu.hpp"
+#include "../GuiClickSound.hpp"
 #include "../Net/NetLink.hpp"
 #include "../Process.hpp"
 
@@ -149,7 +150,7 @@ std::optional<MainMenuStates> MultiplayerJoinMenu::ProcessLogicMultiplayerJoinMe
         NetLink::ClientSendHello(hello);
     }
 
-    if (NEA_GUIObjectGetEvent(this->BackButton) == NEA_Clicked)
+    if (GuiClicked(this->BackButton))
     {
         NetLink::Shutdown();
         return MainMenuStates::MultiplayerFirstMenu;
@@ -161,13 +162,13 @@ std::optional<MainMenuStates> MultiplayerJoinMenu::ProcessLogicMultiplayerJoinMe
         {
             this->RefreshApList();
 
-            if (NEA_GUIObjectGetEvent(this->PrevButton) == NEA_Clicked && this->selected > 0)
+            if (GuiClicked(this->PrevButton) && this->selected > 0)
                 this->selected--;
-            if (NEA_GUIObjectGetEvent(this->NextButton) == NEA_Clicked &&
+            if (GuiClicked(this->NextButton) &&
                 this->selected + 1 < static_cast<int>(this->apIndices.size()))
                 this->selected++;
 
-            if (NEA_GUIObjectGetEvent(this->JoinButton) == NEA_Clicked &&
+            if (GuiClicked(this->JoinButton) &&
                 !this->apIndices.empty())
             {
                 if (NetLink::ClientConnectTo(this->apIndices.at(this->selected)))

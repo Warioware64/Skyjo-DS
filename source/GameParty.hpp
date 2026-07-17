@@ -28,6 +28,14 @@ enum class PausePhase
     SaveMenu
 };
 
+// In-game sound-effect kinds (see GameParty::EmitSfx).
+enum class SfxKind
+{
+    Pose,  // a card was placed into the grid
+    Take,  // a card was taken from a pile, or revealed
+    Clear  // a full matching column was cleared
+};
+
 class GameParty
 {
     private:
@@ -71,6 +79,11 @@ class GameParty
         void AnimateHandSprites();
         void ResolveColumnClears(int playerIdx);
         bool HandFullyRevealed(int playerIdx) const;
+
+        // Plays an in-game SFX locally (host / single-player) and bumps the
+        // matching authoritative counter so the client can replay it from the
+        // snapshot. See EmitSfx in GameParty.cpp.
+        void EmitSfx(SfxKind kind);
         void EndTurn(int playerIdx);
         void AdvanceToNextPlayer();
 
@@ -138,6 +151,20 @@ class GameParty
         // EndTurn), so the next player's turn doesn't start on the very next
         // frame. Host-side only; clients mirror the frozen state via snapshots.
         int turnTransitionFrames = 0;
+
+        // SFX event counters. Host/single-player: bumped by EmitSfx as events
+        // happen and mirrored into the snapshot (BuildSnapshot). Client: the
+        // *Seen values track the last snapshot's counters so ApplySnapshot can
+        // edge-detect changes and replay the sound; sfxSeenInit suppresses a
+        // spurious burst on the first applied snapshot. Runtime-only (not
+        // serialized).
+        uint16_t sfxPoseCount  = 0;
+        uint16_t sfxTakeCount  = 0;
+        uint16_t sfxClearCount = 0;
+        uint16_t sfxPoseSeen   = 0;
+        uint16_t sfxTakeSeen   = 0;
+        uint16_t sfxClearSeen  = 0;
+        bool     sfxSeenInit   = false;
 
         NEA_Sprite *myPacket[12];
         NEA_Sprite *pullpacket[2];

@@ -39,6 +39,11 @@ nitrofs.add_files_unchanged(['resources/MainMenu/hex/'], out_dir='mainmenu/hex/'
 # whole folder, so the tiny _LICENSE.txt / _README.txt attribution files ride
 # along into the image too (harmless).
 nitrofs.add_files_unchanged(['resources/music/'], out_dir='music/')
+# One-shot in-game sound effects. mmutil builds a maxmod soundbank from the wavs
+# into nitro:/maxmod/soundbank.bin and emits soundbank_info.h (SFX_* / MSL_*
+# defines). The returned header path is registered as an arm9 build dependency
+# below so it exists before the sources that include it are compiled.
+soundbank_header = nitrofs.add_mmutil(['resources/audioSound/'])
 nitrofs.generate_image()
 
 arm9 = Arm9Binary(
@@ -58,6 +63,8 @@ arm9 = Arm9Binary(
     # it survives files that include <nds.h> before the project headers.
     cxxflags='-Wall -O2 -std=gnu++26 -D_LITTLE_ENDIAN -include yas/detail/config/endian.hpp',
 )
+# Make the generated soundbank_info.h available before compiling sources.
+arm9.add_header_dependencies([soundbank_header])
 arm9.generate_elf()
 
 nds = NdsRom(

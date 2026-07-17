@@ -1,4 +1,5 @@
 #include "SettingsMenu.hpp"
+#include "../GuiClickSound.hpp"
 #include "../Process.hpp"
 #include "../Music.hpp"
 
@@ -136,7 +137,7 @@ void SettingsMenu::UnloadAssetsSettingsMenu()
 
 std::optional<MainMenuStates> SettingsMenu::ProcessLogicSettingsMenu()
 {
-    if (NEA_GUIObjectGetEvent(this->BackButton) == NEA_Clicked)
+    if (GuiClicked(this->BackButton))
     {
         process.CallSaveSettings();
         return MainMenuStates::MainSelectionMenu;
@@ -210,6 +211,10 @@ std::optional<MainMenuStates> SettingsMenu::ProcessLogicSettingsMenu()
     else {
         this->decrementSound = 0;
     }
+
+    // Reflect the new SFX volume on maxmod's global effects volume immediately.
+    Music::ApplySfxVolume();
+
     return std::nullopt;
 }
 

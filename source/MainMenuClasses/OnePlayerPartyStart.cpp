@@ -1,4 +1,5 @@
 #include "OnePlayerPartyStart.hpp"
+#include "../GuiClickSound.hpp"
 #include "MainMenu.hpp"
 #include "MainMenuStates.hpp"
 
@@ -259,36 +260,36 @@ std::optional<MainMenuStates> OnePlayerPartyStart::ProcessLogicOnePlayerPartySta
         this->old_cpu_level = CPULevel::Medium;        
     }
 
-    if (NEA_GUIObjectGetEvent(this->PrevPlayerNumberCPUButton) == NEA_Clicked)
+    if (GuiClicked(this->PrevPlayerNumberCPUButton))
     {
         if (this->player_number != 2)
             this->player_number--;
     }
 
-    if (NEA_GUIObjectGetEvent(this->NextPlayerNumberCPUButton) == NEA_Clicked)
+    if (GuiClicked(this->NextPlayerNumberCPUButton))
     {
         if (this->player_number != 8)
             this->player_number++;
     }
 
-    if (NEA_GUIObjectGetEvent(this->PrevPlayerLevelCPUButton) == NEA_Clicked)
+    if (GuiClicked(this->PrevPlayerLevelCPUButton))
     {
         if (this->cpu_level != CPULevel::Easy)
             this->cpu_level = static_cast<CPULevel>( static_cast<int>(this->cpu_level) - 1);
     }
 
-    if (NEA_GUIObjectGetEvent(this->NextPlayerLevelCPUButton) == NEA_Clicked)
+    if (GuiClicked(this->NextPlayerLevelCPUButton))
     {
         if (this->cpu_level != CPULevel::Hard)
             this->cpu_level = static_cast<CPULevel>( static_cast<int>(this->cpu_level) + 1);
     }
 
 
-    if (NEA_GUIObjectGetEvent(this->BackButton) == NEA_Clicked)
+    if (GuiClicked(this->BackButton))
     {
         return MainMenuStates::PlaySelectionMenu;
     }
-    else if (NEA_GUIObjectGetEvent(this->StartGameButton) == NEA_Clicked)
+    else if (GuiClicked(this->StartGameButton))
     {
         return MainMenuStates::TransitionToPlayOnePlayer;
     }

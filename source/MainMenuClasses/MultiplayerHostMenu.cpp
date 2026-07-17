@@ -1,4 +1,5 @@
 #include "MultiplayerHostMenu.hpp"
+#include "../GuiClickSound.hpp"
 #include "../Net/NetLink.hpp"
 #include "../Process.hpp"
 
@@ -188,32 +189,32 @@ std::optional<MainMenuStates> MultiplayerHostMenu::ProcessLogicMultiplayerHostMe
     if (maxCpu < 0) maxCpu = 0;
     if (this->cpuCount > maxCpu) this->cpuCount = maxCpu;
 
-    if (NEA_GUIObjectGetEvent(this->PrevCpuCountButton) == NEA_Clicked)
+    if (GuiClicked(this->PrevCpuCountButton))
     {
         if (this->cpuCount > 0) this->cpuCount--;
     }
-    if (NEA_GUIObjectGetEvent(this->NextCpuCountButton) == NEA_Clicked)
+    if (GuiClicked(this->NextCpuCountButton))
     {
         if (this->cpuCount < maxCpu) this->cpuCount++;
     }
-    if (NEA_GUIObjectGetEvent(this->PrevCpuLevelButton) == NEA_Clicked)
+    if (GuiClicked(this->PrevCpuLevelButton))
     {
         if (this->cpuLevel != CPULevel::Easy)
             this->cpuLevel = static_cast<CPULevel>(static_cast<int>(this->cpuLevel) - 1);
     }
-    if (NEA_GUIObjectGetEvent(this->NextCpuLevelButton) == NEA_Clicked)
+    if (GuiClicked(this->NextCpuLevelButton))
     {
         if (this->cpuLevel != CPULevel::Hard)
             this->cpuLevel = static_cast<CPULevel>(static_cast<int>(this->cpuLevel) + 1);
     }
 
-    if (NEA_GUIObjectGetEvent(this->BackButton) == NEA_Clicked)
+    if (GuiClicked(this->BackButton))
     {
         NetLink::Shutdown();
         return MainMenuStates::MultiplayerFirstMenu;
     }
 
-    if (NEA_GUIObjectGetEvent(this->StartButton) == NEA_Clicked)
+    if (GuiClicked(this->StartButton))
     {
         int clients = NetLink::HostNumClients();
         if (clients < 1) return std::nullopt; // need at least one other player

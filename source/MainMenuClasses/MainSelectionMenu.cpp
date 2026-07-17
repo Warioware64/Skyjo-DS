@@ -1,4 +1,5 @@
 #include "MainSelectionMenu.hpp"
+#include "../GuiClickSound.hpp"
 #include "MainMenuStates.hpp"
 
 
@@ -100,18 +101,18 @@ void MainSelectionMenu::UnloadAssetsMainSelectionMenu()
 
 std::optional<MainMenuStates> MainSelectionMenu::ProcessLogicMainSelectionMenu()
 {
-    if (resumableParty && NEA_GUIObjectGetEvent(this->ResumeButton) == NEA_Clicked)
+    if (resumableParty && GuiClicked(this->ResumeButton))
     {
         // Flag the resume so MainMenu loads the saved party at launch, then reuse
         // the normal one-player launch transition.
         this->resumeSelected = true;
         return MainMenuStates::TransitionToPlayOnePlayer;
     }
-    else if (NEA_GUIObjectGetEvent(this->PlayButton) == NEA_Clicked)
+    else if (GuiClicked(this->PlayButton))
     {
         return MainMenuStates::PlaySelectionMenu;
     }
-    else if (NEA_GUIObjectGetEvent(this->SettingsButton) == NEA_Clicked)
+    else if (GuiClicked(this->SettingsButton))
     {
         return MainMenuStates::SettingsMenu;
     }

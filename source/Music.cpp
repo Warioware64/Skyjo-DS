@@ -1,6 +1,7 @@
 #include "Music.hpp"
 #include "globalHeader.hpp"   // <NEAMain.h> -> NEASound.h -> maxmod9.h, plus <nds.h>/<filesystem.h>
-#include "Process.hpp"        // global `process` (gamesettings.musicSoundVolume)
+#include "Process.hpp"        // global `process` (gamesettings.music/nosesSoundVolume)
+#include "nitrofs/soundbank_info.h" // generated SFX_POSECARD / SFX_TAKECARD / SFX_CLEARCOLUMN
 
 #include <cstring>            // memcpy, strcmp
 #include <cstdio>             // FILE*, fopen/fread/fseek/feof/fclose
@@ -49,6 +50,7 @@ namespace
     int         stream_buffer_out = 0;
     bool        active = false;
     bool        inited = false;
+    bool        sfxAvailable = false; // true once the soundbank + effects loaded
 
     mm_word streamingCallback(mm_word length, mm_addr dest,
                               mm_stream_formats format)
@@ -147,17 +149,40 @@ void Music::InitOnce()
     if (inited)
         return;
 
-    // No soundbank: initialize maxmod manually (mirrors the NEA streaming
-    // example). mmInit brings up the ARM7 sound hardware itself.
-    mm_ds_system sys;
-    sys.mod_count    = 0;
-    sys.samp_count   = 0;
-    sys.mem_bank     = nullptr;
-    sys.fifo_channel = FIFO_MAXMOD;
-    mmInit(&sys);
+    // Initialize maxmod once, WITH the soundbank, so the single instance drives
+    // BOTH the streaming music (NEA_StreamOpen) and the one-shot effects
+    // (mmEffect). NEA_SoundSystemResetFAT does soundEnable() + mmInitDefault() +
+    // NEA pool alloc in one call and returns 0 on success.
+    if (NEA_SoundSystemResetFAT("nitro:/maxmod/soundbank.bin", 1) == 0)
+    {
+        // Preload the effects so the first play has no file hitch, and apply the
+        // saved SFX volume (settings are loaded before ProcessInit calls us).
+        NEA_SfxLoad(SFX_POSECARD);
+        NEA_SfxLoad(SFX_TAKECARD);
+        NEA_SfxLoad(SFX_CLEARCOLUMN);
+        NEA_SfxLoad(SFX_CLICK);
+        sfxAvailable = true;
+        Music::ApplySfxVolume();
+    }
+    else
+    {
+        // Soundbank missing/unreadable: fall back to a soundbank-less init so at
+        // least the streaming music keeps working (effects stay silent). Mirrors
+        // the NEA streaming example; mmInit brings up the ARM7 sound hardware.
+        mm_ds_system sys;
+        sys.mod_count    = 0;
+        sys.samp_count   = 0;
+        sys.mem_bank     = nullptr;
+        sys.fifo_channel = FIFO_MAXMOD;
+        mmInit(&sys);
+        NEA_SoundSystemResetPool(1);
+    }
 
-    // Allocate NEA's sound-source pool (maxmod is already inited above).
-    NEA_SoundSystemResetPool(1);
+    // Power on the sound hardware AFTER maxmod init. Every BlocksDS maxmod
+    // example calls soundEnable() *after* mmInitDefault; NEA_SoundSystemResetFAT
+    // calls it *before*, which the soundbank init then leaves powered down — so
+    // without this the stream and effects play into disabled output (silence).
+    soundEnable();
 
     inited = true;
 }
@@ -233,4 +258,40 @@ void Music::ApplyVolume()
 
     // maxmod stream volume is 0 (silent) .. 127 (normal).
     mmStreamVolume(static_cast<mm_byte>((v * 127) / 1024));
+}
+
+// --- One-shot sound effects -----------------------------------------------
+
+void Music::SfxPoseCard()
+{
+    if (sfxAvailable)
+        NEA_SfxPlay(SFX_POSECARD);
+}
+
+void Music::SfxTakeCard()
+{
+    if (sfxAvailable)
+        NEA_SfxPlay(SFX_TAKECARD);
+}
+
+void Music::SfxClearColumn()
+{
+    if (sfxAvailable)
+        NEA_SfxPlay(SFX_CLEARCOLUMN);
+}
+
+void Music::SfxClick()
+{
+    if (sfxAvailable)
+        NEA_SfxPlay(SFX_CLICK);
+}
+
+void Music::ApplySfxVolume()
+{
+    int32_t v = process.gamesettings.nosesSoundVolume; // 0..1024
+    if (v < 0)    v = 0;
+    if (v > 1024) v = 1024;
+
+    // maxmod global effects master volume shares the 0..1024 scale — 1:1.
+    mmSetEffectsVolume(static_cast<mm_word>(v));
 }

@@ -31,6 +31,18 @@ namespace Music
     // Re-apply process.gamesettings.musicSoundVolume (0-1024) to the running
     // stream, mapped to maxmod's 0-127 range. Safe to call anytime.
     void ApplyVolume();
+
+    // --- One-shot sound effects (in-game) ---------------------------------
+    // Loaded once by InitOnce() from the maxmod soundbank. Each Play is a
+    // no-op if the soundbank failed to load. Safe to call from game logic.
+    void SfxPoseCard();     // a card was placed into the grid
+    void SfxTakeCard();     // a card was taken from a pile, or revealed
+    void SfxClearColumn();  // a full matching column was cleared
+    void SfxClick();        // a UI button was clicked
+
+    // Re-apply process.gamesettings.nosesSoundVolume (0-1024) as the maxmod
+    // global effects master volume (0-1024, 1:1). Safe to call anytime.
+    void ApplySfxVolume();
 }
 
 #endif // MUSIC_HPP

@@ -1,4 +1,5 @@
 #include "PlaySelectionMenu.hpp"
+#include "../GuiClickSound.hpp"
 #include "MainMenuStates.hpp"
 
 
@@ -89,15 +90,15 @@ void PlaySelectionMenu::UnloadAssetsPlaySelectionMenu()
 
 std::optional<MainMenuStates> PlaySelectionMenu::ProcessLogicPlaySelectionMenu()
 {
-    if (NEA_GUIObjectGetEvent(this->BackButton) == NEA_Clicked)
+    if (GuiClicked(this->BackButton))
     {
         return MainMenuStates::MainSelectionMenu;
     }
-    else if (NEA_GUIObjectGetEvent(this->OnePlayerButton) == NEA_Clicked)
+    else if (GuiClicked(this->OnePlayerButton))
     {
         return MainMenuStates::OnePlayerPartyStart;
     }
-    else if (NEA_GUIObjectGetEvent(this->MultiplayerButton) == NEA_Clicked)
+    else if (GuiClicked(this->MultiplayerButton))
     {
         return MainMenuStates::MultiplayerFirstMenu;
     }
