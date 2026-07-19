@@ -72,7 +72,7 @@ nds = NdsRom(
     nds_path='skyjo-nds.nds',
     game_title='SKYJO DS',
     game_icon="iconSKYJO.png",
-    game_subtitle='Version',
+    game_subtitle='Made by Warioware64',
 )
 nds.generate_nds()
 
