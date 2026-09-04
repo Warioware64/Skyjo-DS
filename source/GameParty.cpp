@@ -8,6 +8,9 @@
 #include "GamePartyClasses/CpuController.hpp"
 #include "GamePartyClasses/RemoteController.hpp"
 #include "Net/NetLink.hpp"
+#include "ErrorHandler.hpp"
+#include "DebugPrint.hpp"
+#include "AssetLoader.hpp"
 #include <NEAGUI.h>
 #include <NEAGeneral.h>
 #include <cstring>
@@ -26,6 +29,82 @@ namespace
     // Pause after a turn ends before the next player acts, so the hand-off (and
     // the "Your turn"/"X is playing" banner) is readable instead of instant.
     constexpr int kTurnTransitionFrames = 45;
+
+    // Per-seat offset applied to each CPU's think delay, so they take their
+    // decisions one after another instead of all on the same frame. See the
+    // comment on the CpuController constructor.
+    constexpr int kCpuStaggerFrames = 14;
+
+    // Tile VRAM the hex backgrounds need, from the GFX chunk of their GRF files
+    // (45252 and 57796 bytes). NEA_Hw2DBGCreate would hand out a single 16 KB
+    // block and NEA_Hw2DBGLoadTiles would then clip the tileset, leaving
+    // everything past the first quarter of the screen as garbage. Main BG lives on
+    // bank E (three usable blocks after the reserved map block), sub BG on bank C
+    // (seven), so both fit.
+    constexpr std::size_t kHexBgTopTileBytes = 48 * 1024; // mainmenu/hex_background2
+    constexpr std::size_t kHexBgBotTileBytes = 64 * 1024; // mainmenu/hex_background
+
+    // Dies with a readable reason instead of writing through a NULL engine
+    // handle. NEA_AssertPointer is a no-op in the release build, and address 0
+    // on the ARM9 is ITCM rather than a fault, so an unchecked NULL here
+    // corrupts memory silently instead of crashing.
+    template <typename T>
+    T *RequireHandle(T *handle, const char *what)
+    {
+        if (handle == nullptr)
+        {
+            error.errorReason.assign("Engine object creation failed: ");
+            error.errorReason.append(what);
+            std::terminate();
+        }
+        return handle;
+    }
+
+    // Deletes an engine object and clears the caller's handle. Teardown has
+    // eight entry points, and NEA_MaterialDelete() dereferences its argument
+    // before looking it up in the pool, so a second delete of an already-freed
+    // pointer is a use-after-free rather than a harmless no-op.
+    void DeleteMaterial(NEA_Material *&mat)
+    {
+        if (mat == nullptr) return;
+        NEA_MaterialDelete(mat);
+        mat = nullptr;
+    }
+
+    void DeletePalette(NEA_Palette *&pal)
+    {
+        if (pal == nullptr) return;
+        NEA_PaletteDelete(pal);
+        pal = nullptr;
+    }
+
+    void DeleteOBJ(NEA_Hw2DOBJ *&obj)
+    {
+        if (obj == nullptr) return;
+        NEA_Hw2DOBJDelete(obj);
+        obj = nullptr;
+    }
+
+    void DeleteOBJAsset(NEA_Hw2DOBJAsset *&asset)
+    {
+        if (asset == nullptr) return;
+        NEA_Hw2DOBJAssetDelete(asset);
+        asset = nullptr;
+    }
+
+    void DeleteBG(NEA_Hw2DBG *&bg)
+    {
+        if (bg == nullptr) return;
+        NEA_Hw2DBGDelete(bg);
+        bg = nullptr;
+    }
+
+    void DeleteGUI(NEA_GUIObj *&obj)
+    {
+        if (obj == nullptr) return;
+        NEA_GUIDeleteObject(obj);
+        obj = nullptr;
+    }
 }
 
 GameParty::GameParty()
@@ -40,6 +119,9 @@ GameParty::~GameParty()
 
 void GameParty::GamePartyLogic()
 {
+    // Fresh per frame; EmitSfx() uses it to start each effect at most once.
+    this->sfxEmittedThisFrame.fill(false);
+
     HandleTopScreenCycling();
 
     switch (this->phase)
@@ -56,10 +138,13 @@ void GameParty::GamePartyLogic()
     }
 }
 
+// All three Destroy* below are idempotent: they clear the handles they delete,
+// so UnloadGamePartyAssets() can call every one of them unconditionally without
+// caring which overlay (if any) was up when the party ended.
 void GameParty::DestroyQuitMenu()
 {
-    NEA_GUIDeleteObject(this->YesButton);
-    NEA_GUIDeleteObject(this->NoButton);
+    DeleteGUI(this->YesButton);
+    DeleteGUI(this->NoButton);
 }
 
 void GameParty::InitQuitMenu()
@@ -80,9 +165,9 @@ void GameParty::InitQuitMenu()
 
 void GameParty::DestroyPauseMenuMain()
 {
-    NEA_GUIDeleteObject(this->ContinueButton);
-    NEA_GUIDeleteObject(this->QuitButton);
-    NEA_GUIDeleteObject(this->SaveButton);
+    DeleteGUI(this->ContinueButton);
+    DeleteGUI(this->QuitButton);
+    DeleteGUI(this->SaveButton);
 }
 
 void GameParty::PauseMenuGUIlogic()
@@ -150,23 +235,40 @@ void GameParty::PauseMenuGUIlogic()
         if ( GuiClicked(this->YesButton))
         {
             this->DestroyQuitMenu();
+
+            // Serialize to RAM and let the engine write the file in the
+            // background, so the console keeps running (and the music keeps
+            // streaming) during the save. NEA_FATWriteDataAsync writes to a
+            // temporary and renames, so an interrupted save can't destroy the
+            // previous one -- and going through yas::mem means no yas file
+            // stream is ever constructed, which matters in a -fno-exceptions
+            // build where a failed open calls std::abort().
+            constexpr std::size_t yasSaveFlag = yas::mem | yas::binary | yas::no_header;
+            std::filesystem::path save_party(process.fatDeviceCPP + "_nds/SkyjoDS/save_party.dat");
+
+            yas::shared_buffer saveBuffer = yas::save<yasSaveFlag>(gameparty);
+
+            AsyncAssetBatch save;
+            if (save.QueueFileWrite(save_party.c_str(), saveBuffer.data.get(),
+                                    saveBuffer.size))
+            {
+                // Losing a save is not a reason to kill the game, so this one
+                // is checked rather than fatal.
+                if (!save.TryWait("Saving..."))
+                    DEBUG_PRINT("save_party.dat could not be written");
+            }
+            else
+            {
+                DEBUG_PRINT("save_party.dat write could not be queued");
+            }
+
+            // Only tear the party down once the save has actually landed: the
+            // snapshot above is taken from `gameparty`, which the teardown
+            // below invalidates.
             this->UnloadGamePartyAssets();
             this->Quited = true;
             mainmenu.mainmenustates = MainMenuStates::MainSelectionMenu;
             mainmenu.bypassableChangeMenuStates = true;
-            
-            constexpr std::size_t yasSaveFlag = yas::file | yas::binary | yas::no_header;
-            std::filesystem::path save_party(process.fatDeviceCPP + "_nds/SkyjoDS/save_party.dat");
-            if ( std::filesystem::exists(save_party) && std::filesystem::is_regular_file(save_party))
-            {
-                std::filesystem::remove(save_party);
-            }
-            yas::file_ostream yasSaveOutput(save_party.c_str());
-            // yas has no serializer for std::filesystem::path; serialize a string.
-            //std::string test_payload = test_file.string();
-            yas::save<yasSaveFlag>(yasSaveOutput, gameparty);
-            yasSaveOutput.flush();
-            
         } 
     }
 }
@@ -356,9 +458,8 @@ void GameParty::InitEndGameMenu()
 
 void GameParty::DestroyEndGameMenu()
 {
-    NEA_GUIDeleteObject(this->ReplayButton);
-    NEA_GUIDeleteObject(this->ExitButton);
-    //NEA_GUIDeleteObject(this->SaveButton);
+    DeleteGUI(this->ReplayButton);
+    DeleteGUI(this->ExitButton);
 }
 
 void GameParty::EndGameGUIlogic()
@@ -407,105 +508,178 @@ void GameParty::EndGameGUIlogic()
 
 void GameParty::UnloadGamePartyAssets()
 {
+    // Eight different routes end a party (pause quit, pause save, replay, exit,
+    // and the four multiplayer bail-outs), and some of them run in sequence.
+    // Everything below deletes engine objects, so it must run exactly once.
+    if (!this->assetsLoaded)
+        return;
+    this->assetsLoaded = false;
+
     // Stop the in-game music before leaving the party (back to the menu, replay,
-    // or a lost-host bail-out). Idempotent, so the several exit routes that all
-    // call this are safe. The menu restarts its own track on re-entry.
+    // or a lost-host bail-out). The menu restarts its own track on re-entry.
     Music::Stop();
+
+    // Whatever overlay was up owns GUI objects whose materials are freed below.
+    // Doing this here rather than in each caller covers the exits that forget
+    // to -- the host losing a client during the results screen used to leave
+    // the Replay/Exit buttons registered in the global GUI pool with freed
+    // materials, and NEA_GUIDraw() then drew them over the main menu.
+    this->DestroyPauseMenuMain();
+    this->DestroyQuitMenu();
+    this->DestroyEndGameMenu();
+
+    // Hide the top-screen cards and push that all the way to the hardware
+    // before their gfx VRAM goes back to the allocator. NEA_Hw2DOBJDelete()
+    // only writes libnds' OAM shadow; the copy to real OAM happens in
+    // NEA_Hw2DOBJUpdateAll(), which only runs from a NEA_UPDATE_HW2D frame.
+    // Without this the menu keeps displaying 12 sprites pointing at VRAM the
+    // next party has already reused.
+    for (int i = 0; i < 12; ++i)
+    {
+        if (this->viewGame[i] != nullptr)
+            NEA_Hw2DOBJSetVisible(this->viewGame[i], false);
+    }
+    NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D));
 
     // Tear down in reverse dependency order: live instances (sprites + OBJs)
     // must go before the assets they reference. NEA_Hw2DOBJAssetDelete() is a
     // silent no-op while any OBJ is still bound, so deleting the viewGame[]
     // instances first is what actually frees the card OBJ assets from VRAM.
-    // Leaving them alive also let MainMenu's HW2D update walk dangling OBJs
-    // after teardown -> data abort.
     NEA_SpriteDeleteAll();
-    //NEA_Hw2DBGDelete(this->hexBGbot);
-    //NEA_Hw2DBGDelete(this->hexBGtop);
+    for (auto &sprite : this->myPacket)          sprite = nullptr;
+    for (auto &sprite : this->pullpacket)        sprite = nullptr;
+    for (auto &sprite : this->pullpacketIconNot) sprite = nullptr;
+    this->heldCardSprite = nullptr;
 
     for (int i = 0; i < 12; ++i)
-        NEA_Hw2DOBJDelete(this->viewGame[i]);
+        DeleteOBJ(this->viewGame[i]);
 
-    NEA_MaterialDelete(this->SaveButtonMat);
-    NEA_MaterialDelete(this->SaveButtonPressedMat);
+    DeleteMaterial(this->SaveButtonMat);
+    DeleteMaterial(this->SaveButtonPressedMat);
 
-    NEA_MaterialDelete(this->ContinueButtonMat);
-    NEA_MaterialDelete(this->ContinueButtonPressedMat);
+    DeleteMaterial(this->ContinueButtonMat);
+    DeleteMaterial(this->ContinueButtonPressedMat);
 
-    NEA_MaterialDelete(this->QuitButtonMat);
-    NEA_MaterialDelete(this->QuitButtonPressedMat);
+    DeleteMaterial(this->QuitButtonMat);
+    DeleteMaterial(this->QuitButtonPressedMat);
 
-    NEA_MaterialDelete(this->YesButtonMat);
-    NEA_MaterialDelete(this->YesButtonPressedMat);
+    DeleteMaterial(this->YesButtonMat);
+    DeleteMaterial(this->YesButtonPressedMat);
 
-    NEA_MaterialDelete(this->NoButtonMat);
-    NEA_MaterialDelete(this->NoButtonPressedMat);
+    DeleteMaterial(this->NoButtonMat);
+    DeleteMaterial(this->NoButtonPressedMat);
 
-    NEA_MaterialDelete(this->ReplayButtonMat);
-    NEA_MaterialDelete(this->ReplayButtonPressedMat);
+    DeleteMaterial(this->ReplayButtonMat);
+    DeleteMaterial(this->ReplayButtonPressedMat);
 
-    NEA_MaterialDelete(this->ExitButtonMat);
-    NEA_MaterialDelete(this->ExitButtonPressedMat);
+    DeleteMaterial(this->ExitButtonMat);
+    DeleteMaterial(this->ExitButtonPressedMat);
 
+    DeletePalette(this->ContinueButtonPal);
+    DeletePalette(this->ContinueButtonPressedPal);
 
-    NEA_PaletteDelete(this->ContinueButtonPal);
-    NEA_PaletteDelete(this->ContinueButtonPressedPal);
+    DeletePalette(this->QuitButtonPal);
+    DeletePalette(this->QuitButtonPressedPal);
 
-    NEA_PaletteDelete(this->QuitButtonPal);
-    NEA_PaletteDelete(this->QuitButtonPressedPal);
+    DeletePalette(this->YesButtonPal);
+    DeletePalette(this->YesButtonPressedPal);
 
-    NEA_PaletteDelete(this->YesButtonPal);
-    NEA_PaletteDelete(this->YesButtonPressedPal);
+    DeletePalette(this->NoButtonPal);
+    DeletePalette(this->NoButtonPressedPal);
 
-    NEA_PaletteDelete(this->NoButtonPal);
-    NEA_PaletteDelete(this->NoButtonPressedPal);
+    DeletePalette(this->ReplayButtonPal);
+    DeletePalette(this->ReplayButtonPressedPal);
 
-    NEA_PaletteDelete(this->ReplayButtonPal);
-    NEA_PaletteDelete(this->ReplayButtonPressedPal);
+    DeletePalette(this->SaveButtonPal);
+    DeletePalette(this->SaveButtonPressedPal);
 
-    NEA_PaletteDelete(this->SaveButtonPal);
-    NEA_PaletteDelete(this->SaveButtonPressedPal);
-
-    NEA_PaletteDelete(this->ExitButtonPal);
-    NEA_PaletteDelete(this->ExitButtonPressedPal);
+    DeletePalette(this->ExitButtonPal);
+    DeletePalette(this->ExitButtonPressedPal);
 
     for (int n = static_cast<int>(CardType::Negative_2); n <= static_cast<int>(CardType::Positive_12); ++n)
     {
         CardType i = static_cast<CardType>(n);
 
-        NEA_MaterialDelete(sharedAssetsGameParty.GetCardMat(i));
-        NEA_PaletteDelete(sharedAssetsGameParty.GetCardPal(i));
-        NEA_Hw2DOBJAssetDelete(sharedAssetsGameParty.GetCardOBJ(i));
-
+        DeleteMaterial(sharedAssetsGameParty.GetCardMat(i));
+        DeletePalette(sharedAssetsGameParty.GetCardPal(i));
+        DeleteOBJAsset(sharedAssetsGameParty.GetCardOBJ(i));
     }
 
-    NEA_MaterialDelete(sharedAssetsGameParty.GetCardMat(std::nullopt));
-    NEA_PaletteDelete(sharedAssetsGameParty.GetCardPal(std::nullopt));
-    NEA_Hw2DOBJAssetDelete(sharedAssetsGameParty.GetCardOBJ(std::nullopt));
+    DeleteMaterial(sharedAssetsGameParty.GetCardMat(std::nullopt));
+    DeletePalette(sharedAssetsGameParty.GetCardPal(std::nullopt));
+    DeleteOBJAsset(sharedAssetsGameParty.GetCardOBJ(std::nullopt));
 
-    NEA_MaterialDelete(this->NotPossibleIconMat);
-    NEA_PaletteDelete(this->NotPossibleIconPal);
+    DeleteMaterial(this->NotPossibleIconMat);
+    DeletePalette(this->NotPossibleIconPal);
+
+    // The backgrounds go last: they own tile and map blocks rather than
+    // anything the objects above point at. Deleting them is what hands those
+    // blocks back, and what lets the main menu claim the same two layers again
+    // on re-entry.
+    DeleteBG(this->hexBGbot);
+    DeleteBG(this->hexBGtop);
+
+#ifdef DEBUG_BUILD
+    {
+        char msg[96];
+        snprintf(msg, sizeof(msg),
+                  "party unloaded: texVRAM=%d subOBJ=%d mainOBJ=%d",
+                  NEA_TextureFreeMem(),
+                  NEA_Hw2DOBJCountUsed(NEA_ENGINE_SUB),
+                  NEA_Hw2DOBJCountUsed(NEA_ENGINE_MAIN));
+        DEBUG_PRINT(msg);
+    }
+#endif
 }
 
 void GameParty::LoadGamePartyAssets()
-{   if (!(NEA_Hw2DGetClaimedBanks() & NEA_VRAM_D))
+{
+    if (!(NEA_Hw2DGetClaimedBanks() & NEA_VRAM_D))
     {
+        error.errorReason.assign("Sub OBJ VRAM (bank D) is not claimed");
         std::terminate();
     }
-    /*
-    this->hexBGtop = NEA_Hw2DBGCreate(NEA_ENGINE_MAIN, 1,
-                                       NEA_HW2D_BG_TILED_8BPP, 256, 256);
+
+    // The menu hands over faded to white. Lift it: this is the game's longest
+    // load (47 files) and the progress bar is the point of showing one.
+    // BuildGamePartyScene() ends with the same call once the scene is up.
+    setBrightness(3, 0);
+
+    // Every file below is only *queued*. A worker thread reads them in the
+    // background while AsyncAssetBatch::Wait() keeps the main loop (and
+    // therefore the music stream) running; the VRAM uploads happen during the
+    // vertical blank, from NEA_AsyncProcess().
+    AsyncAssetBatch assets;
+
+    // The party owns its own copy of the hex backgrounds. The main menu frees
+    // its pair before launching us, which is what makes these two layers
+    // available -- see UnloadGamePartyAssets() for the other half.
+    //
+    // The palette_slot argument is ignored for 8bpp backgrounds (the engine
+    // only computes a first-colour offset for 4bpp), so each engine's whole
+    // 256-colour BG palette comes from its own background. That is fine here:
+    // one background per engine.
+    this->hexBGtop = RequireHandle(NEA_Hw2DBGCreateTiles(NEA_ENGINE_MAIN, 1,
+                                                         NEA_HW2D_BG_TILED_8BPP,
+                                                         256, 256,
+                                                         kHexBgTopTileBytes),
+                                   "game party main BG");
     NEA_Hw2DBGSetPriority(this->hexBGtop, 3);
+    // Freshly created layers are shown by default and their tile blocks still
+    // hold whatever the previous owner left there, so keep them hidden until
+    // the artwork has landed.
+    NEA_Hw2DBGSetVisible(this->hexBGtop, false);
+    assets.QueueBGGRF(this->hexBGtop, "mainmenu/hex_background2_png.grf", 0);
 
-    NEA_Hw2DBGLoadGRFFAT(this->hexBGtop, "mainmenu/hex_background2_png.grf", 0);
-    NEA_Hw2DBGSetVisible(this->hexBGtop, true);
-
-    this->hexBGbot = NEA_Hw2DBGCreate(NEA_ENGINE_SUB, 0,
-                                       NEA_HW2D_BG_TILED_8BPP, 256, 256);
+    this->hexBGbot = RequireHandle(NEA_Hw2DBGCreateTiles(NEA_ENGINE_SUB, 0,
+                                                         NEA_HW2D_BG_TILED_8BPP,
+                                                         256, 256,
+                                                         kHexBgBotTileBytes),
+                                   "game party sub BG");
     NEA_Hw2DBGSetPriority(this->hexBGbot, 3);
-    NEA_Hw2DBGLoadGRFFAT(this->hexBGbot, "mainmenu/hex_background_png.grf", 1);
+    NEA_Hw2DBGSetVisible(this->hexBGbot, false);
+    assets.QueueBGGRF(this->hexBGbot, "mainmenu/hex_background_png.grf", 0);
 
-    NEA_Hw2DBGSetVisible(this->hexBGbot, true);
-    */
     this->ContinueButtonMat = NEA_MaterialCreate();
     this->ContinueButtonPal = NEA_PaletteCreate();
     this->ContinueButtonPressedMat = NEA_MaterialCreate();
@@ -526,45 +700,37 @@ void GameParty::LoadGamePartyAssets()
     this->NoButtonPressedMat = NEA_MaterialCreate();
     this->NoButtonPressedPal = NEA_PaletteCreate();
 
-    NEA_MaterialTexLoadGRF(this->ContinueButtonMat,
-                            this->ContinueButtonPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/ResumeButton_png.grf");
+    assets.QueueTexGRF( this->ContinueButtonMat,
+                  this->ContinueButtonPal,
+                  "mainmenu/btns/ResumeButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->ContinueButtonPressedMat,
-                            this->ContinueButtonPressedPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/ResumeButtonPressed_png.grf");
+    assets.QueueTexGRF( this->ContinueButtonPressedMat,
+                  this->ContinueButtonPressedPal,
+                  "mainmenu/btns/ResumeButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->QuitButtonMat,
-                            this->QuitButtonPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/QuitButton_png.grf");
+    assets.QueueTexGRF( this->QuitButtonMat,
+                  this->QuitButtonPal,
+                  "mainmenu/btns/QuitButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->QuitButtonPressedMat,
-                            this->QuitButtonPressedPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/QuitButtonPressed_png.grf");
+    assets.QueueTexGRF( this->QuitButtonPressedMat,
+                  this->QuitButtonPressedPal,
+                  "mainmenu/btns/QuitButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->NoButtonMat,
-                            this->NoButtonPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/NoButton_png.grf");
+    assets.QueueTexGRF( this->NoButtonMat,
+                  this->NoButtonPal,
+                  "mainmenu/btns/NoButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->NoButtonPressedMat,
-                            this->NoButtonPressedPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/NoButtonPressed_png.grf");
+    assets.QueueTexGRF( this->NoButtonPressedMat,
+                  this->NoButtonPressedPal,
+                  "mainmenu/btns/NoButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->YesButtonMat,
-                            this->YesButtonPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/YesButton_png.grf");
+    assets.QueueTexGRF( this->YesButtonMat,
+                  this->YesButtonPal,
+                  "mainmenu/btns/YesButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->YesButtonPressedMat,
-                            this->YesButtonPressedPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/YesButtonPressed_png.grf");
+    assets.QueueTexGRF( this->YesButtonPressedMat,
+                  this->YesButtonPressedPal,
+                  "mainmenu/btns/YesButtonPressed_png.grf");
 
     this->ReplayButtonMat = NEA_MaterialCreate();
     this->ReplayButtonPal = NEA_PaletteCreate();
@@ -581,69 +747,87 @@ void GameParty::LoadGamePartyAssets()
     this->SaveButtonPressedMat = NEA_MaterialCreate();
     this->SaveButtonPressedPal = NEA_PaletteCreate();
 
-    NEA_MaterialTexLoadGRF(this->ReplayButtonMat,
-                            this->ReplayButtonPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/ReplayButton_png.grf");
+    assets.QueueTexGRF( this->ReplayButtonMat,
+                  this->ReplayButtonPal,
+                  "mainmenu/btns/ReplayButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->ReplayButtonPressedMat,
-                            this->ReplayButtonPressedPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/ReplayButtonPressed_png.grf");
+    assets.QueueTexGRF( this->ReplayButtonPressedMat,
+                  this->ReplayButtonPressedPal,
+                  "mainmenu/btns/ReplayButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->ExitButtonMat,
-                            this->ExitButtonPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/ExitButton_png.grf");
+    assets.QueueTexGRF( this->ExitButtonMat,
+                  this->ExitButtonPal,
+                  "mainmenu/btns/ExitButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->ExitButtonPressedMat,
-                            this->ExitButtonPressedPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/ExitButtonPressed_png.grf");
-    
-    NEA_MaterialTexLoadGRF(this->SaveButtonMat,
-                            this->SaveButtonPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/SaveButton_png.grf");
+    assets.QueueTexGRF( this->ExitButtonPressedMat,
+                  this->ExitButtonPressedPal,
+                  "mainmenu/btns/ExitButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->SaveButtonPressedMat,
-                            this->SaveButtonPressedPal,
-                            NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/SaveButtonPressed_png.grf");
+    assets.QueueTexGRF( this->SaveButtonMat,
+                  this->SaveButtonPal,
+                  "mainmenu/btns/SaveButton_png.grf");
+
+    assets.QueueTexGRF( this->SaveButtonPressedMat,
+                  this->SaveButtonPressedPal,
+                  "mainmenu/btns/SaveButtonPressed_png.grf");
     for (int n = static_cast<int>(CardType::Negative_2); n <= static_cast<int>(CardType::Positive_12); ++n)
     {
         CardType i = static_cast<CardType>(n);
 
         sharedAssetsGameParty.GetCardMat(i) = NEA_MaterialCreate();
         sharedAssetsGameParty.GetCardPal(i) = NEA_PaletteCreate();
-        sharedAssetsGameParty.GetCardOBJ(i) = NEA_Hw2DOBJAssetCreate(NEA_ENGINE_SUB, NEA_OBJ_SIZE_32x64, NEA_OBJ_COLOR_16);
+        sharedAssetsGameParty.GetCardOBJ(i) = RequireHandle(
+                NEA_Hw2DOBJAssetCreate(NEA_ENGINE_SUB, NEA_OBJ_SIZE_32x64,
+                                       NEA_OBJ_COLOR_16),
+                "card OBJ asset");
 
-        // AssetLoadGRFFAT auto-allocates a 16-color palette slot and loads the
+        // The GRF loader auto-allocates a 16-color palette slot and loads the
         // palette into it. Don't override the slot afterwards: SetPaletteSlot
         // re-points the slot number but does NOT move the palette data, leaving
         // the asset pointing at an empty bank (renders fully black).
-        NEA_Hw2DOBJAssetLoadGRFFAT(sharedAssetsGameParty.GetCardOBJ(i),
-                                    sharedAssetsGameParty.GetHwCardGRFpath(i).c_str());
+        assets.QueueOBJAssetGRF(sharedAssetsGameParty.GetCardOBJ(i),
+                                sharedAssetsGameParty.GetHwCardGRFpath(i).c_str());
 
-        NEA_MaterialTexLoadGRF(sharedAssetsGameParty.GetCardMat(i),
-                                 sharedAssetsGameParty.GetCardPal(i),
-                                  NEA_TEXGEN_TEXCOORD, sharedAssetsGameParty.GetCardGRFpath(i).c_str());
+        assets.QueueTexGRF(sharedAssetsGameParty.GetCardMat(i),
+                           sharedAssetsGameParty.GetCardPal(i),
+                           sharedAssetsGameParty.GetCardGRFpath(i).c_str());
     }
 
     sharedAssetsGameParty.GetCardMat(std::nullopt) = NEA_MaterialCreate();
     sharedAssetsGameParty.GetCardPal(std::nullopt) = NEA_PaletteCreate();
-    sharedAssetsGameParty.GetCardOBJ(std::nullopt) = NEA_Hw2DOBJAssetCreate(NEA_ENGINE_SUB, NEA_OBJ_SIZE_32x64, NEA_OBJ_COLOR_16);
+    sharedAssetsGameParty.GetCardOBJ(std::nullopt) = RequireHandle(
+            NEA_Hw2DOBJAssetCreate(NEA_ENGINE_SUB, NEA_OBJ_SIZE_32x64,
+                                   NEA_OBJ_COLOR_16),
+            "card back OBJ asset");
 
-    NEA_Hw2DOBJAssetLoadGRFFAT(sharedAssetsGameParty.GetCardOBJ(std::nullopt),
-                                sharedAssetsGameParty.GetHwCardGRFpath(std::nullopt).c_str());
-    NEA_MaterialTexLoadGRF(sharedAssetsGameParty.GetCardMat(std::nullopt),
-                            sharedAssetsGameParty.GetCardPal(std::nullopt),
-                            NEA_TEXGEN_TEXCOORD, sharedAssetsGameParty.GetCardGRFpath(std::nullopt).c_str());
+    assets.QueueOBJAssetGRF(sharedAssetsGameParty.GetCardOBJ(std::nullopt),
+                            sharedAssetsGameParty.GetHwCardGRFpath(std::nullopt).c_str());
+    assets.QueueTexGRF(sharedAssetsGameParty.GetCardMat(std::nullopt),
+                       sharedAssetsGameParty.GetCardPal(std::nullopt),
+                       sharedAssetsGameParty.GetCardGRFpath(std::nullopt).c_str());
 
     this->NotPossibleIconMat = NEA_MaterialCreate();
     this->NotPossibleIconPal = NEA_PaletteCreate();
 
-    NEA_MaterialTexLoadGRF(this->NotPossibleIconMat, this->NotPossibleIconPal, NEA_TEXGEN_TEXCOORD, "ingame/clear_png.grf");
+    assets.QueueTexGRF(this->NotPossibleIconMat, this->NotPossibleIconPal,
+                       "ingame/clear_png.grf");
+
+    // Drain the batch. This function must still behave like a blocking load,
+    // because every caller uses the assets as soon as it returns
+    // (BuildGamePartyScene(), RefreshMyHandSprite()...). The difference is that
+    // the console keeps running while we wait -- music included -- instead of
+    // freezing on a pile of synchronous reads.
+    assets.Wait("Loading...");
+
+    // Show the backgrounds only once their tiles and maps are actually in
+    // VRAM -- a visible layer over an unwritten tile block is a screenful of
+    // garbage.
+    NEA_Hw2DBGSetVisible(this->hexBGtop, true);
+    NEA_Hw2DBGSetVisible(this->hexBGbot, true);
+
+    // Everything is in VRAM now, so nothing else in the party can find a
+    // half-loaded asset.
+    this->assetsLoaded = true;
 
     // Fresh SFX event state for this game: host authoritative counters, and the
     // client's edge-detect baseline (sfxSeenInit re-primed on the first snapshot).
@@ -690,7 +874,9 @@ void GameParty::BuildControllers(int n)
         case PartyType::OnePlayerCPU:
             this->controllers.push_back(std::make_unique<HumanTouchController>());
             for (int i = 1; i < n; ++i)
-                this->controllers.push_back(std::make_unique<CpuController>(this->cpuLevel));
+                this->controllers.push_back(
+                    std::make_unique<CpuController>(this->cpuLevel,
+                                                    i * kCpuStaggerFrames));
             break;
 
         case PartyType::LocalMultiplayer:
@@ -704,7 +890,9 @@ void GameParty::BuildControllers(int n)
                 if (i < this->humanSeatCount)
                     this->controllers.push_back(std::make_unique<RemoteController>(i));
                 else
-                    this->controllers.push_back(std::make_unique<CpuController>(this->cpuLevel));
+                    this->controllers.push_back(
+                        std::make_unique<CpuController>(this->cpuLevel,
+                                                        i * kCpuStaggerFrames));
             }
             break;
     }
@@ -747,14 +935,6 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     unreturnedRow.fill(CardReturn::Unreturned);
     this->cardReturns.assign(number_arg, unreturnedRow);
 
-    /*
-    NEA_Hw2DOBJAsset *tempTEST = NEA_Hw2DOBJAssetCreate(NEA_ENGINE_SUB, NEA_OBJ_SIZE_64x32,  NEA_OBJ_COLOR_256);
-    NEA_Hw2DOBJAssetLoadGRFFAT(tempTEST, "mainmenu/btns/DisplayNAME_png.grf");
-    NEA_Hw2DOBJ *testTEMPCOPY = NEA_Hw2DOBJCreateFromAsset(tempTEST);
-    NEA_Hw2DOBJSetPriority(testTEMPCOPY, 3);
-    NEA_Hw2DOBJSetPos(testTEMPCOPY, 5, 5);
-    NEA_Hw2DOBJSetVisible(testTEMPCOPY, true);
-    */
     this->namePlayers.resize(number_arg);
     this->namePlayers.at(0) = process.consoleUserName;
 
@@ -877,7 +1057,9 @@ void GameParty::BuildGamePartyScene()
 
     for (size_t i = 0; i < 12; i++)
     {
-        this->viewGame[i] = NEA_Hw2DOBJCreateFromAsset(sharedAssetsGameParty.GetCardOBJ(std::nullopt));
+        this->viewGame[i] = RequireHandle(
+                NEA_Hw2DOBJCreateFromAsset(sharedAssetsGameParty.GetCardOBJ(std::nullopt)),
+                "top-screen card OBJ");
         NEA_Hw2DOBJSetPos(this->viewGame[i], x, y);
         NEA_Hw2DOBJSetVisible(this->viewGame[i], true);
         x += 28;
@@ -1294,11 +1476,31 @@ void GameParty::EmitSfx(SfxKind kind)
     // matching authoritative counter so a multiplayer client can replay it from
     // the snapshot (see BuildSnapshot / ApplySnapshot). The client never runs the
     // authoritative logic, so it never calls this — no double-play.
+    //
+    // The counter is bumped for every event, but the sample is only started the
+    // first time this frame: several players can act in the same frame (the
+    // initial reveal does exactly that), and identical samples started on the
+    // same frame are sample-aligned, so they clip and flange instead of just
+    // sounding louder. A client edge-detects the counter, so it plays once
+    // either way and the wire semantics are unchanged.
+    const std::size_t slot = static_cast<std::size_t>(kind);
+    const bool alreadyPlaying = this->sfxEmittedThisFrame.at(slot);
+    this->sfxEmittedThisFrame.at(slot) = true;
+
     switch (kind)
     {
-        case SfxKind::Pose:  Music::SfxPoseCard();    ++this->sfxPoseCount;  break;
-        case SfxKind::Take:  Music::SfxTakeCard();    ++this->sfxTakeCount;  break;
-        case SfxKind::Clear: Music::SfxClearColumn(); ++this->sfxClearCount; break;
+        case SfxKind::Pose:
+            if (!alreadyPlaying) Music::SfxPoseCard();
+            ++this->sfxPoseCount;
+            break;
+        case SfxKind::Take:
+            if (!alreadyPlaying) Music::SfxTakeCard();
+            ++this->sfxTakeCount;
+            break;
+        case SfxKind::Clear:
+            if (!alreadyPlaying) Music::SfxClearColumn();
+            ++this->sfxClearCount;
+            break;
     }
 }
 
@@ -1378,7 +1580,8 @@ void GameParty::RenderGameParty()
         const bool overlay = this->StartMenu || this->EndMenu;
         if (overlay)
         {
-            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D | NEA_UPDATE_GUI));
+            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D | NEA_UPDATE_GUI |
+                                                         NEA_UPDATE_ASSETS));
             if (this->StartMenu)
                 this->PauseMenuGUIlogic();
             else
@@ -1397,7 +1600,8 @@ void GameParty::RenderGameParty()
         }
         else
         {
-            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D));
+            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D |
+                                                         NEA_UPDATE_ASSETS));
         }
 
         // Keep the music stream's circular buffer topped up every frame
@@ -1700,7 +1904,8 @@ void GameParty::RenderGamePartyClient()
 
     while (1)
     {
-        NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D));
+        NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_HW2D |
+                                                     NEA_UPDATE_ASSETS));
 
         // Keep the music stream's circular buffer topped up every frame.
         Music::Pump();

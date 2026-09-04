@@ -84,6 +84,12 @@ class GameParty
         // matching authoritative counter so the client can replay it from the
         // snapshot. See EmitSfx in GameParty.cpp.
         void EmitSfx(SfxKind kind);
+
+        // One start per effect per frame. Two copies of the same sample begun on
+        // the same frame are sample-aligned, so they sum into a clipped, flanged
+        // version of themselves instead of just sounding louder. Reset at the top
+        // of GamePartyLogic().
+        std::array<bool, 3> sfxEmittedThisFrame{};
         void EndTurn(int playerIdx);
         void AdvanceToNextPlayer();
 
@@ -91,8 +97,17 @@ class GameParty
 
         //int frameToSeconds = 0;
         //std::chrono::seconds secondCount;
-        NEA_Hw2DBG *hexBGtop;
-        NEA_Hw2DBG *hexBGbot;
+        // The party's own hex backgrounds (main layer 1, sub layer 0). Created
+        // in LoadGamePartyAssets and freed in UnloadGamePartyAssets -- the main
+        // menu owns the same two layers, so the create/delete pair on each side
+        // is what lets the other one claim them.
+        NEA_Hw2DBG *hexBGtop = nullptr;
+        NEA_Hw2DBG *hexBGbot = nullptr;
+
+        // True between LoadGamePartyAssets() and UnloadGamePartyAssets(). Eight
+        // routes end a party and some run in sequence, so teardown checks this
+        // to make sure it runs exactly once.
+        bool assetsLoaded = false;
 
         NEA_Material *ContinueButtonMat;
         NEA_Palette *ContinueButtonPal;
@@ -166,14 +181,14 @@ class GameParty
         uint16_t sfxClearSeen  = 0;
         bool     sfxSeenInit   = false;
 
-        NEA_Sprite *myPacket[12];
-        NEA_Sprite *pullpacket[2];
-        NEA_Sprite *pullpacketIconNot[2];
-        NEA_Sprite *heldCardSprite;
+        NEA_Sprite *myPacket[12] = {};
+        NEA_Sprite *pullpacket[2] = {};
+        NEA_Sprite *pullpacketIconNot[2] = {};
+        NEA_Sprite *heldCardSprite = nullptr;
 
 
-        NEA_Hw2DOBJAsset *OBJ2dCardsAssets[16];
-        NEA_Hw2DOBJ *viewGame[12];
+        NEA_Hw2DOBJAsset *OBJ2dCardsAssets[16] = {};
+        NEA_Hw2DOBJ *viewGame[12] = {};
 
         std::vector<std::unique_ptr<IPlayerController>> controllers;
         std::array<int, 12> initialRevealCount; // per-player count revealed during InitialReveal

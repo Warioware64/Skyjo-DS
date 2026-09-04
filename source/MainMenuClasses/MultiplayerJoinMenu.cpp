@@ -1,4 +1,5 @@
 #include "MultiplayerJoinMenu.hpp"
+#include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "../Net/NetLink.hpp"
 #include "../Process.hpp"
@@ -10,6 +11,11 @@ namespace
 
 void MultiplayerJoinMenu::LoadAssetsMultiplayerJoinMenu()
 {
+    // Every button texture is read in the background; Wait() at the end of
+    // this function drains the batch. The menu calls this at the fade apex,
+    // so the wait is hidden by the fade.
+    AsyncAssetBatch assets;
+
     this->BackMat[0] = NEA_MaterialCreate();
     this->BackMat[1] = NEA_MaterialCreate();
     this->BackPal[0] = NEA_PaletteCreate();
@@ -30,25 +36,25 @@ void MultiplayerJoinMenu::LoadAssetsMultiplayerJoinMenu()
     this->NextPal[0] = NEA_PaletteCreate();
     this->NextPal[1] = NEA_PaletteCreate();
 
-    NEA_MaterialTexLoadGRF(this->BackMat[0], this->BackPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButton_png.grf");
-    NEA_MaterialTexLoadGRF(this->BackMat[1], this->BackPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButtonPressed_png.grf");
+    assets.QueueTexGRF(this->BackMat[0], this->BackPal[0],
+                       "mainmenu/btns/BackButton_png.grf");
+    assets.QueueTexGRF(this->BackMat[1], this->BackPal[1],
+                       "mainmenu/btns/BackButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->JoinMat[0], this->JoinPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/StartGameButton_png.grf");
-    NEA_MaterialTexLoadGRF(this->JoinMat[1], this->JoinPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/StartGameButtonPressed_png.grf");
+    assets.QueueTexGRF(this->JoinMat[0], this->JoinPal[0],
+                       "mainmenu/btns/StartGameButton_png.grf");
+    assets.QueueTexGRF(this->JoinMat[1], this->JoinPal[1],
+                       "mainmenu/btns/StartGameButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->PrevMat[0], this->PrevPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/PrevPlayerButton_png.grf");
-    NEA_MaterialTexLoadGRF(this->PrevMat[1], this->PrevPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/PrevPlayerButtonPressed_png.grf");
+    assets.QueueTexGRF(this->PrevMat[0], this->PrevPal[0],
+                       "mainmenu/btns/PrevPlayerButton_png.grf");
+    assets.QueueTexGRF(this->PrevMat[1], this->PrevPal[1],
+                       "mainmenu/btns/PrevPlayerButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->NextMat[0], this->NextPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/NextPlayerButton_png.grf");
-    NEA_MaterialTexLoadGRF(this->NextMat[1], this->NextPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/NextPlayerButtonPressed_png.grf");
+    assets.QueueTexGRF(this->NextMat[0], this->NextPal[0],
+                       "mainmenu/btns/NextPlayerButton_png.grf");
+    assets.QueueTexGRF(this->NextMat[1], this->NextPal[1],
+                       "mainmenu/btns/NextPlayerButtonPressed_png.grf");
 
     this->BackButton = NEA_GUIButtonCreate(5, 160, 5 + 64, 160 + 32);
     NEA_GUIButtonConfig(this->BackButton,
@@ -80,6 +86,8 @@ void MultiplayerJoinMenu::LoadAssetsMultiplayerJoinMenu()
 
     // Enter client mode and start scanning for Skyjo hosts.
     NetLink::StartClientScan();
+
+    assets.Wait("Loading...");
 }
 
 void MultiplayerJoinMenu::UnloadAssetsMultiplayerJoinMenu()

@@ -1,10 +1,16 @@
 #include "MainSelectionMenu.hpp"
+#include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "MainMenuStates.hpp"
 
 
 void MainSelectionMenu::LoadAssetsMainSelectionMenu()
 {
+    // Every button texture is read in the background; Wait() at the end of
+    // this function drains the batch. The menu calls this at the fade apex,
+    // so the wait is hidden by the fade.
+    AsyncAssetBatch assets;
+
     // Materials/palettes are created here and destroyed in the matching
     // UnloadAssetsMainSelectionMenu — keep Create/Delete paired per screen.
     this->PlayMat[0] = NEA_MaterialCreate();
@@ -24,15 +30,21 @@ void MainSelectionMenu::LoadAssetsMainSelectionMenu()
         this->ResumePal[0] = NEA_PaletteCreate();
         this->ResumePal[1] = NEA_PaletteCreate();
 
-        NEA_MaterialTexLoadGRF(this->ResumeMat[0], this->ResumePal[0], NEA_TEXGEN_TEXCOORD, "mainmenu/btns/ResumeButton_png.grf");
-        NEA_MaterialTexLoadGRF(this->ResumeMat[1], this->ResumePal[1], NEA_TEXGEN_TEXCOORD, "mainmenu/btns/ResumeButtonPressed_png.grf");
+        assets.QueueTexGRF(this->ResumeMat[0], this->ResumePal[0],
+                       "mainmenu/btns/ResumeButton_png.grf");
+        assets.QueueTexGRF(this->ResumeMat[1], this->ResumePal[1],
+                       "mainmenu/btns/ResumeButtonPressed_png.grf");
     }
 
-    NEA_MaterialTexLoadGRF(this->PlayMat[0], this->PlayPal[0], NEA_TEXGEN_TEXCOORD, "mainmenu/btns/playButton_png.grf");
-    NEA_MaterialTexLoadGRF(this->PlayMat[1], this->PlayPal[1], NEA_TEXGEN_TEXCOORD, "mainmenu/btns/playButtonPressed_png.grf");
+    assets.QueueTexGRF(this->PlayMat[0], this->PlayPal[0],
+                       "mainmenu/btns/playButton_png.grf");
+    assets.QueueTexGRF(this->PlayMat[1], this->PlayPal[1],
+                       "mainmenu/btns/playButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->SettingsMat[0], this->SettingsPal[0], NEA_TEXGEN_TEXCOORD, "mainmenu/btns/SettingsButton_png.grf");
-    NEA_MaterialTexLoadGRF(this->SettingsMat[1], this->SettingsPal[1], NEA_TEXGEN_TEXCOORD, "mainmenu/btns/SettingsButtonPressed_png.grf");
+    assets.QueueTexGRF(this->SettingsMat[0], this->SettingsPal[0],
+                       "mainmenu/btns/SettingsButton_png.grf");
+    assets.QueueTexGRF(this->SettingsMat[1], this->SettingsPal[1],
+                       "mainmenu/btns/SettingsButtonPressed_png.grf");
 
     if (!resumableParty)
     {
@@ -71,6 +83,8 @@ void MainSelectionMenu::LoadAssetsMainSelectionMenu()
                             this->ResumeMat[0], NEA_White, 31,
                             this->ResumeMat[1], NEA_White, 31);    
     }
+
+    assets.Wait("Loading...");
 }
 
 void MainSelectionMenu::UnloadAssetsMainSelectionMenu()

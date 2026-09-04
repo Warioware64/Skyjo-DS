@@ -1,4 +1,6 @@
 #include "MainMenu.hpp"
+#include "AssetLoader.hpp"
+#include "ErrorHandler.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
 #include "MainMenuClasses/MainSelectionMenu.hpp"
 #include "Music.hpp"
@@ -106,6 +108,64 @@ void MainMenu::SCREEN_BOTTOM()
     // Hardware 2D BG renders itself; nothing to submit here yet.
 }
 
+// Tile VRAM the hex backgrounds need, from the GFX chunk of their GRF files
+// (45252 and 57796 bytes). NEA_Hw2DBGCreate would hand out a single 16 KB
+// block and NEA_Hw2DBGLoadTiles would then clip the tileset, leaving
+// everything past the first quarter of the screen as garbage. Main BG lives on
+// bank E (three usable blocks after the reserved map block), sub BG on bank C
+// (seven), so both fit.
+constexpr std::size_t kHexBgTopTileBytes = 48 * 1024; // mainmenu/hex_background2
+constexpr std::size_t kHexBgBotTileBytes = 64 * 1024; // mainmenu/hex_background
+
+// Creates the two hex background layers and loads their artwork. Split out of
+// LoadAssetsMainMenu because both (re)entry paths need it.
+//
+// Layer 1 on main (layer 0 is reserved for the 3D output); priority 3 puts both
+// behind the 3D layer, so text submitted as a 3D quad renders above the pattern
+// with no submission-order tricks.
+//
+// The palette_slot argument is ignored for 8bpp backgrounds -- the engine only
+// computes a first-colour offset for 4bpp ones -- so each engine's whole
+// 256-colour BG palette comes from its own background. One per engine, so that
+// is exactly what we want.
+void MainMenu::CreateHexBackgrounds()
+{
+    AsyncAssetBatch assets;
+
+    this->hexBGtop = NEA_Hw2DBGCreateTiles(NEA_ENGINE_MAIN, 1,
+                                            NEA_HW2D_BG_TILED_8BPP, 256, 256,
+                                            kHexBgTopTileBytes);
+    if (this->hexBGtop == nullptr)
+    {
+        error.errorReason.assign("Couldn't create the menu main BG");
+        std::terminate();
+    }
+    NEA_Hw2DBGSetPriority(this->hexBGtop, 3);
+    // Freshly created layers are shown by default and their tile blocks still
+    // hold whatever the previous owner left there, so keep them hidden until
+    // the artwork has landed.
+    NEA_Hw2DBGSetVisible(this->hexBGtop, false);
+    assets.QueueBGGRF(this->hexBGtop, "mainmenu/hex_background2_png.grf", 0);
+
+    this->hexBGbot = NEA_Hw2DBGCreateTiles(NEA_ENGINE_SUB, 0,
+                                            NEA_HW2D_BG_TILED_8BPP, 256, 256,
+                                            kHexBgBotTileBytes);
+    if (this->hexBGbot == nullptr)
+    {
+        error.errorReason.assign("Couldn't create the menu sub BG");
+        std::terminate();
+    }
+    NEA_Hw2DBGSetPriority(this->hexBGbot, 3);
+    NEA_Hw2DBGSetVisible(this->hexBGbot, false);
+    assets.QueueBGGRF(this->hexBGbot, "mainmenu/hex_background_png.grf", 0);
+
+    assets.Wait("Loading...");
+
+    // Only show them once the tiles and maps are really in VRAM.
+    NEA_Hw2DBGSetVisible(this->hexBGtop, true);
+    NEA_Hw2DBGSetVisible(this->hexBGbot, true);
+}
+
 void MainMenu::LoadAssetsMainMenu()
 {
     // Reset the menu back to the title screen on every (re)entry. When the menu
@@ -121,6 +181,17 @@ void MainMenu::LoadAssetsMainMenu()
     {
         this->mainSelec.resumableParty = false;
     }
+    // The menu always fades in from white, so start there: it also hides the
+    // background load below, the same way the fade apex hides the per-screen
+    // loads in RenderMainMenu().
+    this->brightness = 16;
+    setBrightness(3, this->brightness);
+
+    // Both (re)entry paths below need the hex backgrounds. They were previously
+    // created once and never freed, which meant the game party rendered on top
+    // of the *menu's* layers; now each side creates and frees its own pair.
+    this->CreateHexBackgrounds();
+
     if (!this->bypassableChangeMenuStates)
     {
         // Normal (re)entry: start on the title screen.
@@ -128,30 +199,6 @@ void MainMenu::LoadAssetsMainMenu()
         this->canTouchDetect = false;
         this->triggerCanTouchDetect = false;
         this->frameTouchDetect = 0;
-
-        // Create the BG layers only once. They are never deleted (see
-        // UnloadAssetsMainMenu), so on a re-entry the layers are still claimed;
-        // calling NEA_Hw2DBGCreate again would return NULL and the following BG
-        // calls would data-abort. This bit me on multiplayer exit, which returns
-        // here with bypassableChangeMenuStates == false.
-        if (!this->bgLayersCreated)
-        {
-            this->hexBGtop = NEA_Hw2DBGCreate(NEA_ENGINE_MAIN, 1,
-                                            NEA_HW2D_BG_TILED_8BPP, 256, 256);
-            NEA_Hw2DBGSetPriority(this->hexBGtop, 3);
-
-            NEA_Hw2DBGLoadGRFFAT(this->hexBGtop, "mainmenu/hex_background2_png.grf", 0);
-            NEA_Hw2DBGSetVisible(this->hexBGtop, true);
-
-            this->hexBGbot = NEA_Hw2DBGCreate(NEA_ENGINE_SUB, 0,
-                                               NEA_HW2D_BG_TILED_8BPP, 256, 256);
-            NEA_Hw2DBGSetPriority(this->hexBGbot, 3);
-            NEA_Hw2DBGLoadGRFFAT(this->hexBGbot, "mainmenu/hex_background_png.grf", 1);
-
-            NEA_Hw2DBGSetVisible(this->hexBGbot, true);
-
-            this->bgLayersCreated = true;
-        }
     }
     else
     {
@@ -186,7 +233,6 @@ void MainMenu::LoadAssetsMainMenu()
         this->bypassableChangeMenuStates = false; // one-shot
     }
 
-    this->brightness = 16;
     this->frameTrigger = 0;
     this->triggerPlayPartyOnePlayer = false;
     this->triggerPlayPartyMultiplayerHost = false;
@@ -202,29 +248,23 @@ void MainMenu::LoadAssetsMainMenu()
 
     this->hexParMat = NEA_MaterialCreate();
     this->hexParPal = NEA_PaletteCreate();
-
-    
     this->hexEmit = NEA_ParticleEmitterCreate();
 
     NEA_MaterialSetName(this->hexParMat, "hexPart");
 
-    NEA_MaterialTexLoadGRF(this->hexParMat, this->hexParPal,
-                            NEA_TEXGEN_TEXCOORD, "mainmenu/hex/hexParticle_png.grf");
+    AsyncAssetBatch assets;
+    assets.QueueTexGRF(this->hexParMat, this->hexParPal,
+                       "mainmenu/hex/hexParticle_png.grf");
+    assets.QueueParticleEmitter(this->hexEmit, "mainmenu/hex/hexNPE.npe");
+    assets.Wait("Loading...");
 
-    NEA_ParticleEmitterLoadFAT(this->hexEmit, "mainmenu/hex/hexNPE.npe");
     NEA_ParticleEmitterSetPosition(this->hexEmit, 0, floattof32(-2.0), 0);
     NEA_ParticleEmitterPlay(this->hexEmit);
 
-    // Rich-text font (3D quad path) for the menu labels.
-    NEA_RichTextResetSystem();
-    NEA_RichTextInit(0);
-    NEA_RichTextMetadataLoadFAT(0, "mainmenu/font/DejaVuSans-Bold.fnt");
-    NEA_RichTextMaterialLoadGRF(0, "mainmenu/font/DejaVuSans-Bold_0_png.grf");
-
-    // Hex background as a hardware 2D BG on each engine.
-    // Layer 1 on main (layer 0 is reserved for 3D output); priority 3 puts
-    // it behind the 3D layer so text submitted as a 3D quad renders above.
-
+    // The rich-text font is loaded once at boot (Process::ProcessInit) and used
+    // by the menu, the game party and the loading overlay alike. Re-initialising
+    // the slot here would throw away and re-read the same font on every menu
+    // entry, and would leave the loading overlay with no font at all.
 
     // Per-screen materials/palettes are created in each sub-menu's own
     // LoadAssets* and freed in the matching UnloadAssets* — creating them
@@ -248,14 +288,23 @@ void MainMenu::UnloadAssetsMainMenu()
     // LoadAssetsMainMenu().
     Music::Stop();
 
-    //NEA_Hw2DBGDelete(this->hexBGbot);
-    //NEA_Hw2DBGDelete(this->hexBGtop);
-
     NEA_ParticleEmitterDelete(this->hexEmit);
+    this->hexEmit = nullptr;
     NEA_MaterialDelete(this->hexParMat);
+    this->hexParMat = nullptr;
     NEA_PaletteDelete(this->hexParPal);
+    this->hexParPal = nullptr;
 
     NEA_CameraDelete(this->emitCam);
+    this->emitCam = nullptr;
+
+    // The backgrounds go last: deleting them hands their tile and map blocks
+    // back to the allocator and hides the layers, which is what lets the game
+    // party claim the same two layers for its own artwork.
+    NEA_Hw2DBGDelete(this->hexBGbot);
+    this->hexBGbot = nullptr;
+    NEA_Hw2DBGDelete(this->hexBGtop);
+    this->hexBGtop = nullptr;
 }
 
 void MainMenu::ProcessLogicMainTitle()
@@ -284,9 +333,14 @@ void MainMenu::RenderMainMenu()
         this->OLDmainmenustates = this->mainmenustates;
 
         if (this->canTouchDetect)
-            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_GUI | NEA_UPDATE_PARTICLES));
+            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_GUI |
+                                                         NEA_UPDATE_PARTICLES |
+                                                         NEA_UPDATE_HW2D |
+                                                         NEA_UPDATE_ASSETS));
         else
-            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_PARTICLES));
+            NEA_WaitForVBL(static_cast<NEA_UpdateFlags>(NEA_UPDATE_PARTICLES |
+                                                         NEA_UPDATE_HW2D |
+                                                         NEA_UPDATE_ASSETS));
 
         // Keep the music stream's circular buffer topped up every frame.
         Music::Pump();

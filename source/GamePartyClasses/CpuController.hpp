@@ -5,7 +5,14 @@
 class CpuController : public IPlayerController
 {
     public:
-        explicit CpuController(CPULevel level);
+        // `stagger` offsets this CPU's first decision by that many frames. Every
+        // CpuController is built in the same call with the same think delay, so
+        // without it they all act on the same frame -- which during the initial
+        // reveal (the one phase where every player acts in the same frame) means
+        // several copies of the same sound effect start sample-aligned and sum
+        // into a clipped, flanged mess. The offset survives every later decision
+        // because TickReady() restarts the delay from the moment each CPU acted.
+        explicit CpuController(CPULevel level, int stagger = 0);
 
         std::optional<int>
             ChooseInitialReveal(const GameParty& g, int playerIdx) override;

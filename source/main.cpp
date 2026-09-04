@@ -12,6 +12,12 @@
 
 int main(int argc, char **argv)
 {
+#ifdef DEBUG_BUILD
+    // Print a full register dump on a CPU exception instead of just the
+    // "Data abort" title. Debug builds only: it takes over the screens.
+    defaultExceptionHandler();
+#endif
+
     DEBUG_PRINT("STARTUP");
     std::set_terminate([]()
     {

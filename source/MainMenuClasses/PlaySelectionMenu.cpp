@@ -1,10 +1,16 @@
 #include "PlaySelectionMenu.hpp"
+#include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "MainMenuStates.hpp"
 
 
 void PlaySelectionMenu::LoadAssetsPlaySelectionMenu()
 {
+    // Every button texture is read in the background; Wait() at the end of
+    // this function drains the batch. The menu calls this at the fade apex,
+    // so the wait is hidden by the fade.
+    AsyncAssetBatch assets;
+
     // Materials/palettes are created here and destroyed in the matching
     // UnloadAssetsPlaySelectionMenu — keep Create/Delete paired per screen.
     this->OnePlayerMat[0] = NEA_MaterialCreate();
@@ -22,24 +28,24 @@ void PlaySelectionMenu::LoadAssetsPlaySelectionMenu()
     this->BackPal[0] = NEA_PaletteCreate();
     this->BackPal[1] = NEA_PaletteCreate();
 
-    NEA_MaterialTexLoadGRF(this->OnePlayerMat[0], this->OnePlayerPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/OnePlayerButton_png.grf");
+    assets.QueueTexGRF(this->OnePlayerMat[0], this->OnePlayerPal[0],
+                       "mainmenu/btns/OnePlayerButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->OnePlayerMat[1], this->OnePlayerPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/OnePlayerButtonPressed_png.grf");
+    assets.QueueTexGRF(this->OnePlayerMat[1], this->OnePlayerPal[1],
+                       "mainmenu/btns/OnePlayerButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->MultiplayerMat[0], this->MultiplayerPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/MultiplayerButton_png.grf");
+    assets.QueueTexGRF(this->MultiplayerMat[0], this->MultiplayerPal[0],
+                       "mainmenu/btns/MultiplayerButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->MultiplayerMat[1], this->MultiplayerPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/MultiplayerButtonPressed_png.grf");
+    assets.QueueTexGRF(this->MultiplayerMat[1], this->MultiplayerPal[1],
+                       "mainmenu/btns/MultiplayerButtonPressed_png.grf");
 
 
-    NEA_MaterialTexLoadGRF(this->BackMat[0], this->BackPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButton_png.grf");
+    assets.QueueTexGRF(this->BackMat[0], this->BackPal[0],
+                       "mainmenu/btns/BackButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->BackMat[1], this->BackPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButtonPressed_png.grf");
+    assets.QueueTexGRF(this->BackMat[1], this->BackPal[1],
+                       "mainmenu/btns/BackButtonPressed_png.grf");
 
 
     this->OnePlayerButton = NEA_GUIButtonCreate(60, 50,
@@ -61,6 +67,8 @@ void PlaySelectionMenu::LoadAssetsPlaySelectionMenu()
     NEA_GUIButtonConfig(this->BackButton,
                         this->BackMat[0], NEA_White, 31,
                         this->BackMat[1], NEA_White, 31);
+
+    assets.Wait("Loading...");
 }
 
 void PlaySelectionMenu::UnloadAssetsPlaySelectionMenu()

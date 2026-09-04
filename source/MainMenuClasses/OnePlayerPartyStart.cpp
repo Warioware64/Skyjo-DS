@@ -1,4 +1,5 @@
 #include "OnePlayerPartyStart.hpp"
+#include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "MainMenu.hpp"
 #include "MainMenuStates.hpp"
@@ -16,6 +17,11 @@ CPULevel OnePlayerPartyStart::Get_CPULevel()
 
 void OnePlayerPartyStart::LoadAssetsOnePlayerPartyStart()
 {
+    // Every button texture is read in the background; Wait() at the end of
+    // this function drains the batch. The menu calls this at the fade apex,
+    // so the wait is hidden by the fade.
+    AsyncAssetBatch assets;
+
     this->player_number = 2;
     this->old_player_number = 0;
 
@@ -46,33 +52,33 @@ void OnePlayerPartyStart::LoadAssetsOnePlayerPartyStart()
     this->StartGamePal[0] = NEA_PaletteCreate();
     this->StartGamePal[1] = NEA_PaletteCreate();
 
-    NEA_MaterialTexLoadGRF(this->EmptyMat, this->EmptyPal, NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/EmptyPlayerNumberButton_png.grf");
+    assets.QueueTexGRF(this->EmptyMat, this->EmptyPal,
+                       "mainmenu/btns/EmptyPlayerNumberButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->BackMat[0], this->BackPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButton_png.grf");
+    assets.QueueTexGRF(this->BackMat[0], this->BackPal[0],
+                       "mainmenu/btns/BackButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->BackMat[1], this->BackPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/BackButtonPressed_png.grf");
+    assets.QueueTexGRF(this->BackMat[1], this->BackPal[1],
+                       "mainmenu/btns/BackButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->NextPlayerMat[0], this->NextPlayerPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/NextPlayerButton_png.grf");
+    assets.QueueTexGRF(this->NextPlayerMat[0], this->NextPlayerPal[0],
+                       "mainmenu/btns/NextPlayerButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->NextPlayerMat[1], this->NextPlayerPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/NextPlayerButtonPressed_png.grf");
+    assets.QueueTexGRF(this->NextPlayerMat[1], this->NextPlayerPal[1],
+                       "mainmenu/btns/NextPlayerButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->PrevPlayerMat[0], this->PrevPlayerPal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/PrevPlayerButton_png.grf");
+    assets.QueueTexGRF(this->PrevPlayerMat[0], this->PrevPlayerPal[0],
+                       "mainmenu/btns/PrevPlayerButton_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->PrevPlayerMat[1], this->PrevPlayerPal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/PrevPlayerButtonPressed_png.grf");
+    assets.QueueTexGRF(this->PrevPlayerMat[1], this->PrevPlayerPal[1],
+                       "mainmenu/btns/PrevPlayerButtonPressed_png.grf");
 
-    NEA_MaterialTexLoadGRF(this->StartGameMat[0], this->StartGamePal[0], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/StartGameButton_png.grf");
+    assets.QueueTexGRF(this->StartGameMat[0], this->StartGamePal[0],
+                       "mainmenu/btns/StartGameButton_png.grf");
 
 
-    NEA_MaterialTexLoadGRF(this->StartGameMat[1], this->StartGamePal[1], NEA_TEXGEN_TEXCOORD,
-                            "mainmenu/btns/StartGameButtonPressed_png.grf");
+    assets.QueueTexGRF(this->StartGameMat[1], this->StartGamePal[1],
+                       "mainmenu/btns/StartGameButtonPressed_png.grf");
 
 
                             
@@ -143,6 +149,8 @@ void OnePlayerPartyStart::LoadAssetsOnePlayerPartyStart()
     NEA_GUIButtonConfig(this->StartGameButton,
                         this->StartGameMat[0], NEA_White, 31,
                         this->StartGameMat[1], NEA_White, 31);
+
+    assets.Wait("Loading...");
 }
 
 void OnePlayerPartyStart::UnloadAssetsOnePlayerPartyStart()

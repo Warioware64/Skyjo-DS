@@ -2,6 +2,7 @@
 
 #include "globalHeader.hpp"
 #include "DebugPrint.hpp"
+#include "AssetLoader.hpp"
 
 class Intro
 {
@@ -19,8 +20,13 @@ class Intro
         // mid-sequence change of artwork is implemented by reloading the
         // tile/map/palette from NitroFS at the transition point, instead of
         // swapping materials on a 3D sprite.
-        NEA_Hw2DBG *bgTop;
-        NEA_Hw2DBG *bgBot;
+        NEA_Hw2DBG *bgTop = nullptr;
+        NEA_Hw2DBG *bgBot = nullptr;
+
+        // Holds the second-state background loads while they are in flight.
+        // They are queued at the fade apex and never awaited: the fade hides
+        // them, and the render loop's NEA_UPDATE_ASSETS runs the uploads.
+        AsyncAssetBatch swap;
     public:
         Intro();
         ~Intro();

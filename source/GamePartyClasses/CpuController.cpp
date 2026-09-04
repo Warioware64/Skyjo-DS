@@ -1,9 +1,9 @@
 #include "CpuController.hpp"
 #include "../GameParty.hpp"
 
-CpuController::CpuController(CPULevel l) : level(l)
+CpuController::CpuController(CPULevel l, int stagger) : level(l)
 {
-    thinkingFrames = DelayFor(level);
+    thinkingFrames = DelayFor(level) + stagger;
 }
 
 int CpuController::DelayFor(CPULevel l) const

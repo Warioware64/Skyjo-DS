@@ -28,22 +28,22 @@ class MainMenu
         // Unload + the next menu's Load are deferred until the fade apex so
         // the asset swap is hidden behind a fully white screen.
         void StartTransitionTo(MainMenuStates next);
-        // Hex background as a hardware 2D BG on each engine instead of a
-        // 3D sprite. Drawing order is now decided by BG-layer priority, so
-        // the rich-text 3D quads naturally render above without us having
-        // to reorder NEA_SpriteDraw calls.
-        NEA_Hw2DBG *hexBGtop;
-        NEA_Hw2DBG *hexBGbot;
-        // The hex BG layers are created once and intentionally kept alive across
-        // game launches (UnloadAssetsMainMenu's deletes are commented out). Guard
-        // re-creation: NEA_Hw2DBGCreate over a still-claimed layer returns NULL and
-        // the next BG call data-aborts (hit when exiting a multiplayer game).
-        bool bgLayersCreated = false;
+        void CreateHexBackgrounds();
 
-        NEA_Material *hexParMat;
-        NEA_Palette *hexParPal;
-        NEA_ParticleEmitter *hexEmit;
-        NEA_Camera *emitCam;
+        // Hex background as a hardware 2D BG on each engine instead of a
+        // 3D sprite. Drawing order is decided by BG-layer priority, so the
+        // rich-text 3D quads render above without any submission-order tricks.
+        //
+        // Created in LoadAssetsMainMenu and freed in UnloadAssetsMainMenu. The
+        // game party claims the same two layers, so the delete on the way out
+        // is what lets it create its own, and vice versa on the way back.
+        NEA_Hw2DBG *hexBGtop = nullptr;
+        NEA_Hw2DBG *hexBGbot = nullptr;
+
+        NEA_Material *hexParMat = nullptr;
+        NEA_Palette *hexParPal = nullptr;
+        NEA_ParticleEmitter *hexEmit = nullptr;
+        NEA_Camera *emitCam = nullptr;
 
         MainSelectionMenu mainSelec;
         PlaySelectionMenu playSelec;
