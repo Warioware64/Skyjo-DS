@@ -8,7 +8,10 @@
 
 from architectds import *
 
+import os
 import sys
+
+CHILD_ROM = 'child/out/skyjo-child.nds'
 
 argv = sys.argv
 
@@ -44,17 +47,38 @@ nitrofs.add_files_unchanged(['resources/music/'], out_dir='music/')
 # defines). The returned header path is registered as an arm9 build dependency
 # below so it exists before the sources that include it are compiled.
 soundbank_header = nitrofs.add_mmutil(['resources/audioSound/'])
+# The DS Download Play child binary, built by child/build.py as an ordinary ROM
+# of its own. It ships inside this ROM so the host can read it at runtime and
+# send it over the air (see MultiplayerDlPlayMenu).
+#
+# The two builds depend on each other in opposite directions: the child links
+# the assets this build converts into build/nitrofs, and this build embeds the
+# finished child. make.sh therefore runs this script, then the child, then this
+# script again. On the first pass the child doesn't exist yet, so it is simply
+# left out rather than failing the build -- the second pass picks it up.
+if os.path.exists(CHILD_ROM):
+    nitrofs.add_files_unchanged(['child/out/'], out_dir='dlplay/')
+    # add_files_unchanged copies the file but doesn't register it in the assets
+    # barrier the ROM depends on, so ndstool would not re-pack when only the
+    # child changed. Register it by hand.
+    nitrofs.target_files.append('build/nitrofs/dlplay/skyjo-child.nds')
+else:
+    print('[*] child ROM not built yet, leaving nitro:/dlplay empty this pass')
 nitrofs.generate_image()
 
 arm9 = Arm9Binary(
     sourcedirs=['source'],
     includedirs=['source'],
     defines=defines_,
-    libs=['NEA', 'mm9', 'nds9', 'dswifi9d_noip'],
+    # DS Download Play lives only in the dswifi fork, installed as "dswifi_dl"
+    # next to stock dswifi. Its headers keep the upstream names (dswifi9.h), so
+    # ${BLOCKSDS}/libs/dswifi must NOT be in libdirs as well -- which set of
+    # headers won the include order would decide the build.
+    libs=['NEA', 'mm9', 'nds9', 'dswifi_dl9d_noip'],
     libdirs=[
         '${BLOCKSDS}/libs/libnds',
         '${BLOCKSDS}/libs/maxmod',
-        '${BLOCKSDS}/libs/dswifi',
+        '${BLOCKSDSEXT}/dswifi_dl',
         '${BLOCKSDSEXT}/nitro-engine-advanced',
     ],
     # -D_LITTLE_ENDIAN + force-including yas's endian config first locks yas to
@@ -67,12 +91,20 @@ arm9 = Arm9Binary(
 arm9.add_header_dependencies([soundbank_header])
 arm9.generate_elf()
 
+# The ARM7 core has to come from the same build as the ARM9 library: the two
+# halves share the structures DSWifi uses to talk between the CPUs, and
+# Wifi_Init() refuses a mismatched pair.
+arm7 = Arm7BinaryDefault(
+    elf_path='${BLOCKSDSEXT}/dswifi_dl/sys/arm7/arm7_dswifi_dl_maxmod.elf'
+)
+
 nds = NdsRom(
-    binaries=[arm9, nitrofs],
+    binaries=[arm9, arm7, nitrofs],
     nds_path='skyjo-nds.nds',
     game_title='SKYJO DS',
     game_icon="iconSKYJO.png",
     game_subtitle='Made by Warioware64',
+    game_author='github.com/Warioware64',
 )
 nds.generate_nds()
 

@@ -10,6 +10,7 @@ enum class MainMenuStates
     MultiplayerFirstMenu,
     MultiplayerHostMenu,
     MultiplayerJoinMenu,
+    MultiplayerDlPlayMenu,
     TransitionToHostGame,
     TransitionToJoinGame,
     SettingsMenu

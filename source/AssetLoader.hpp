@@ -17,6 +17,24 @@
 //
 // Any load that fails is fatal, matching the rest of the project's asset code:
 // the reason goes into `error.errorReason` and std::terminate() runs.
+// Overwrites the backdrop colour on both engines.
+//
+// grit keys transparency to magenta and puts it in palette entry 0, which the
+// DS displays as the backdrop wherever nothing covers it -- so loading a
+// background palette flashes the screen magenta until the layer appears. Call
+// this after loading backgrounds. Entry 0 is never used by an opaque
+// background's tiles, so nothing is lost.
+void ClearBackdropToWhite();
+
+// Bytes of heap left, and the largest single block still obtainable from it.
+//
+// Two numbers rather than one because they answer different questions: plenty
+// of free memory with a small largest block means fragmentation, while both
+// being small means the heap is simply used up. The probe allocates while it
+// measures, so keep it to diagnostics.
+std::size_t HeapBytesFree();
+std::size_t HeapLargestBlock();
+
 class AsyncAssetBatch
 {
     public:
@@ -80,8 +98,61 @@ class AsyncAssetBatch
 
         using AsyncFilePtr = std::unique_ptr<NEA_AsyncFile, AsyncFileRelease>;
 
-        // Records a queued handle, or dies if the engine refused the job.
-        void Track(NEA_AsyncFile *handle, const char *path);
+        // Everything needed to issue one load, kept so it can be issued again.
+        //
+        // The engine fails a job when it cannot open the file, cannot allocate
+        // a buffer for it, cannot decode it, or could never start a worker
+        // thread -- and three of those four are transient: they depend on what
+        // else happened to be holding memory at that instant. Moving quickly
+        // between menus is exactly when that is most likely, because one
+        // screen's buffers are still being released while the next screen's
+        // loads are being queued. Retrying costs a few frames; the alternative
+        // was killing the game.
+        //
+        // Paths are always string literals, so borrowing the pointer is safe.
+        struct Request
+        {
+            enum class Kind { TexGRF, BGGRF, OBJAsset, Particle, RichTextMeta,
+                              FileWrite };
 
-        std::vector<AsyncFilePtr> jobs;
+            Kind kind;
+            const char *path;
+            void *target;       // material / background / sprite asset / emitter
+            void *palette;      // TexGRF only
+            int slot;           // BGGRF palette slot, RichTextMeta font slot
+            const void *data;   // FileWrite only
+            std::size_t size;   // FileWrite only
+        };
+
+        // A queued job, and what it would take to ask for it again.
+        struct Job
+        {
+            AsyncFilePtr handle;
+            Request request;
+        };
+
+        // Issues one request, returning the engine's handle (NULL on refusal).
+        static NEA_AsyncFile *Issue(const Request &request);
+
+        // Whether a failed request may simply be issued again.
+        //
+        // Asset loads may: they only read a path. A file write may not. It is
+        // queued with NEA_ASYNC_WRITE_COPY exactly so the caller can let its
+        // buffer go the moment QueueFileWrite() returns, which callers do -- so
+        // by the time a retry came round, `data` could point at nothing. A
+        // failed save is also not fatal, which is why it is paired with
+        // TryWait() rather than Wait() in the first place.
+        static bool Retryable(const Request &request);
+
+        // Re-issues every job of the batch that ended in NEA_ASYNC_ERROR.
+        // Returns false if the engine refused to even queue one of them.
+        bool RetryFailed();
+
+        // Issues a request and records it, or dies if the engine refused it.
+        void Track(const Request &request);
+
+        // The first asset of the batch that did not finish, set by TryWait().
+        const char *failedPath = nullptr;
+
+        std::vector<Job> jobs;
 };

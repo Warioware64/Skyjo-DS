@@ -9,16 +9,36 @@
 // WAV streaming ported from the Nitro Engine Advanced example
 // (examples/sound/streaming/source/main.c). The menu and game tracks are both
 // 16-bit stereo 11025 Hz PCM with a canonical 44-byte header, so the PCM data
-// begins at sizeof(WAVHeader) and looping is just a seek back to that offset on
-// EOF.
+// begins at sizeof(WAVHeader) and looping is just a seek back to that offset.
 //
 // The streaming callback runs inside a timer interrupt (MM_TIMER0), so it must
 // only copy from the circular buffer and never touch the filesystem. The file
 // reads happen from Music::Pump(), driven once per frame by the active render
 // loop. Only one stream exists at a time; switching tracks stops the old one.
+//
+// Two source formats feed that one buffer, chosen by the magic word at the
+// start of the file. A cartridge plays the PCM WAVs directly. A Download Play
+// guest cannot: it has no filesystem, so its music is linked into the binary
+// and every byte is airtime, and it gets an 8000 Hz mono IMA-ADPCM track
+// instead -- a quarter of the bytes of the mono PCM it decodes to, and decoded
+// here on the main thread rather than costing a heap buffer at fopen(). The
+// container and the reasoning are in child/encode_music.py.
 
 namespace
 {
+    // Where the volume settings come from. The Download Play guest has no
+    // settings file and no Process object -- it is a stripped client build --
+    // so it just uses the defaults; everything else reads what the player saved.
+    const GameSettings &Settings()
+    {
+#ifdef SKYJO_CLIENT_ONLY
+        static const GameSettings kGuestDefaults{ 1024, 1024 };
+        return kGuestDefaults;
+#else
+        return process.gamesettings;
+#endif
+    }
+
     constexpr uint32_t DATA_ID = 0x61746164; // "data"
     constexpr uint32_t FMT_ID  = 0x20746d66; // "fmt "
     constexpr uint32_t RIFF_ID = 0x46464952; // "RIFF"
@@ -41,9 +61,30 @@ namespace
         uint32_t subchunk2Size;
     };
 
+    // Both the loop point and the data-chunk end are computed from this, and
+    // the tracks are canonical 44-byte-header WAVs.
+    static_assert(sizeof(WAVHeader) == 44, "WAV header must be 44 bytes");
+
+    // The IMA-ADPCM container written by child/encode_music.py: a 16-byte
+    // header, then two 4-bit samples per byte, low nibble first. There are no
+    // per-block state headers -- decoding is bit-exact against the encoder and
+    // the only seek ever made is back to sample 0 at the loop point.
+    constexpr uint32_t ADPCM_ID = 0x50444153; // "SADP"
+
+    struct AdpcmHeader
+    {
+        uint32_t magic;
+        uint16_t version;
+        uint16_t numChannels;
+        uint32_t sampleRate;
+        uint32_t sampleCount;
+    };
+
+    enum class SourceFormat { Wav, Adpcm };
+
     constexpr int BUFFER_LENGTH = 16384;
 
-    FILE       *wavFile = nullptr;
+    FILE       *trackFile = nullptr;
     const char *currentPath = nullptr;
     char        stream_buffer[BUFFER_LENGTH];
     int         stream_buffer_in = 0;
@@ -51,6 +92,23 @@ namespace
     bool        active = false;
     bool        inited = false;
     bool        sfxAvailable = false; // true once the soundbank + effects loaded
+
+    SourceFormat sourceFormat = SourceFormat::Wav;
+
+    // End of the WAV's `data` chunk. Both tracks carry LIST/id3 trailers after
+    // it, so looping on end-of-*file* would play a few hundred bytes of tag
+    // metadata as PCM at every loop point -- a short burst of noise every two
+    // minutes.
+    long wavDataEnd = 0;
+
+    // ADPCM decoder state, carried across refills and reset at the loop point.
+    int32_t  adpcmPredictor = 0;
+    int      adpcmIndex = 0;
+    uint32_t adpcmSampleCount = 0;
+    uint32_t adpcmLeft = 0;
+    int16_t  adpcmStash = 0;    // second sample of a byte, when one was spare
+    bool     adpcmStashed = false;
+
 
     mm_word streamingCallback(mm_word length, mm_addr dest,
                               mm_stream_formats format)
@@ -81,24 +139,161 @@ namespace
         return length;
     }
 
-    // Read `size` bytes into `buffer`, looping back to the start of the PCM data
-    // (just past the header) whenever the end of the file is reached.
-    void readFile(char *buffer, size_t size)
+    // Read `size` bytes of PCM into `buffer`, looping back to the start of the
+    // `data` chunk when its end is reached.
+    void readWav(char *buffer, size_t size)
     {
         while (size > 0)
         {
-            int res = fread(buffer, 1, size, wavFile);
+            long left = wavDataEnd - ftell(trackFile);
+            if (left <= 0)
+            {
+                fseek(trackFile, sizeof(WAVHeader), SEEK_SET);
+                left = wavDataEnd - (long)sizeof(WAVHeader);
+            }
+
+            size_t want = size;
+            if (want > (size_t)left)
+                want = (size_t)left;
+
+            size_t res = fread(buffer, 1, want, trackFile);
+            if (res == 0)
+            {
+                // Unreadable, not merely finished. Hand the callback silence
+                // rather than spinning here, and start the next refill from the
+                // top in case the read recovers.
+                memset(buffer, 0, size);
+                fseek(trackFile, sizeof(WAVHeader), SEEK_SET);
+                return;
+            }
+
             size -= res;
             buffer += res;
+        }
+    }
 
-            if (feof(wavFile))
+    // --- IMA-ADPCM ---------------------------------------------------------
+
+    const int8_t adpcmIndexTable[16] = {
+        -1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8
+    };
+
+    const int16_t adpcmStepTable[89] = {
+            7,     8,     9,    10,    11,    12,    13,    14,    16,    17,
+           19,    21,    23,    25,    28,    31,    34,    37,    41,    45,
+           50,    55,    60,    66,    73,    80,    88,    97,   107,   118,
+          130,   143,   157,   173,   190,   209,   230,   253,   279,   307,
+          337,   371,   408,   449,   494,   544,   598,   658,   724,   796,
+          876,   963,  1060,  1166,  1282,  1411,  1552,  1707,  1878,  2066,
+         2272,  2499,  2749,  3024,  3327,  3660,  4026,  4428,  4871,  5358,
+         5894,  6484,  7132,  7845,  8630,  9493, 10442, 11487, 12635, 13899,
+        15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
+    };
+
+    void adpcmRewind()
+    {
+        fseek(trackFile, sizeof(AdpcmHeader), SEEK_SET);
+        adpcmPredictor = 0;
+        adpcmIndex = 0;
+        adpcmLeft = adpcmSampleCount;
+        adpcmStashed = false;
+    }
+
+    int16_t adpcmDecode(uint8_t code)
+    {
+        int32_t step = adpcmStepTable[adpcmIndex];
+
+        int32_t diff = step >> 3;
+        if (code & 4) diff += step;
+        if (code & 2) diff += step >> 1;
+        if (code & 1) diff += step >> 2;
+
+        adpcmPredictor += (code & 8) ? -diff : diff;
+        if (adpcmPredictor < -32768)     adpcmPredictor = -32768;
+        else if (adpcmPredictor > 32767) adpcmPredictor = 32767;
+
+        adpcmIndex += adpcmIndexTable[code];
+        if (adpcmIndex < 0)       adpcmIndex = 0;
+        else if (adpcmIndex > 88) adpcmIndex = 88;
+
+        return (int16_t)adpcmPredictor;
+    }
+
+    // Decode `size` bytes' worth of 16-bit mono samples. `size` is always even:
+    // the callback consumes whole samples and BUFFER_LENGTH is a multiple of
+    // one, so every refill asks for a whole number of them. The sample *count*
+    // can still be odd, hence the one-sample stash -- a byte always yields two.
+    void readAdpcm(char *buffer, size_t size)
+    {
+        size_t samples = size / 2;
+        int16_t *out = (int16_t *)buffer;
+
+        while (samples > 0)
+        {
+            if (adpcmStashed)
             {
-                fseek(wavFile, sizeof(WAVHeader), SEEK_SET);
-                res = fread(buffer, 1, size, wavFile);
-                size -= res;
-                buffer += res;
+                *out++ = adpcmStash;
+                adpcmStashed = false;
+                --samples;
+                continue;
+            }
+
+            if (adpcmLeft == 0)
+                adpcmRewind();
+
+            uint8_t packed[256];
+            size_t want = (samples + 1) / 2;
+            if (want > sizeof(packed))
+                want = sizeof(packed);
+            if (want > (size_t)((adpcmLeft + 1) / 2))
+                want = (size_t)((adpcmLeft + 1) / 2);
+
+            size_t res = fread(packed, 1, want, trackFile);
+            if (res == 0)
+            {
+                // Unreadable, not merely finished. Hand the callback silence
+                // rather than spinning here, and start the next refill from the
+                // top in case the read recovers.
+                memset(out, 0, samples * 2);
+                adpcmRewind();
+                return;
+            }
+
+            for (size_t i = 0; i < res && samples > 0 && adpcmLeft > 0; ++i)
+            {
+                *out++ = adpcmDecode(packed[i] & 0x0F);
+                --samples;
+                --adpcmLeft;
+
+                // An odd total leaves the last byte's high nibble as padding.
+                if (adpcmLeft == 0)
+                    break;
+
+                int16_t second = adpcmDecode(packed[i] >> 4);
+                --adpcmLeft;
+
+                if (samples > 0)
+                {
+                    *out++ = second;
+                    --samples;
+                }
+                else
+                {
+                    // Read a byte to get an odd sample; keep the spare rather
+                    // than seeking back half a byte.
+                    adpcmStash = second;
+                    adpcmStashed = true;
+                }
             }
         }
+    }
+
+    void producePcm(char *buffer, size_t size)
+    {
+        if (sourceFormat == SourceFormat::Adpcm)
+            readAdpcm(buffer, size);
+        else
+            readWav(buffer, size);
     }
 
     void streamingFillBuffer(bool force_fill)
@@ -112,17 +307,17 @@ namespace
         if (stream_buffer_in < stream_buffer_out)
         {
             size_t size = stream_buffer_out - stream_buffer_in;
-            readFile(&stream_buffer[stream_buffer_in], size);
+            producePcm(&stream_buffer[stream_buffer_in], size);
             stream_buffer_in += size;
         }
         else
         {
             size_t size = BUFFER_LENGTH - stream_buffer_in;
-            readFile(&stream_buffer[stream_buffer_in], size);
+            producePcm(&stream_buffer[stream_buffer_in], size);
             stream_buffer_in = 0;
 
             size = stream_buffer_out - stream_buffer_in;
-            readFile(&stream_buffer[stream_buffer_in], size);
+            producePcm(&stream_buffer[stream_buffer_in], size);
             stream_buffer_in += size;
         }
 
@@ -153,7 +348,10 @@ void Music::InitOnce()
     // BOTH the streaming music (NEA_StreamOpen) and the one-shot effects
     // (mmEffect). NEA_SoundSystemResetFAT does soundEnable() + mmInitDefault() +
     // NEA pool alloc in one call and returns 0 on success.
-    if (NEA_SoundSystemResetFAT("nitro:/maxmod/soundbank.bin", 1) == 0)
+    // Relative on purpose: it resolves through NitroFS here (nitroFSInit claims
+    // the current drive, nitrofs_device.c:1025) and through the linked asset
+    // filesystem in the Download Play child, which has no NitroFS at all.
+    if (NEA_SoundSystemResetFAT("maxmod/soundbank.bin", 1) == 0)
     {
         // Preload the effects so the first play has no file hitch, and apply the
         // saved SFX volume (settings are loaded before ProcessInit calls us).
@@ -198,26 +396,66 @@ void Music::Play(const char *path)
 
     // This build is compiled with -fno-exceptions, so on any failure we bail
     // out cleanly and leave things silent rather than aborting.
-    wavFile = fopen(path, "rb");
-    if (wavFile == nullptr)
+    trackFile = fopen(path, "rb");
+    if (trackFile == nullptr)
         return;
 
-    WAVHeader header = {};
-    if (fread(&header, 1, sizeof(header), wavFile) != sizeof(header) ||
-        !checkWAVHeader(header))
+    // Which of the two source formats this is. The magic word decides: a WAV
+    // opens with "RIFF", the guest's encoded track with "SADP".
+    uint32_t magic = 0;
+    if (fread(&magic, 1, sizeof(magic), trackFile) != sizeof(magic))
     {
-        fclose(wavFile);
-        wavFile = nullptr;
+        fclose(trackFile);
+        trackFile = nullptr;
         return;
+    }
+    fseek(trackFile, 0, SEEK_SET);
+
+    mm_word           rate;
+    mm_stream_formats format;
+
+    if (magic == ADPCM_ID)
+    {
+        AdpcmHeader header = {};
+        if (fread(&header, 1, sizeof(header), trackFile) != sizeof(header) ||
+            header.version != 1 || header.numChannels != 1 ||
+            header.sampleCount == 0)
+        {
+            fclose(trackFile);
+            trackFile = nullptr;
+            return;
+        }
+
+        sourceFormat = SourceFormat::Adpcm;
+        adpcmSampleCount = header.sampleCount;
+        adpcmRewind();
+
+        rate = header.sampleRate;
+        format = MM_STREAM_16BIT_MONO;
+    }
+    else
+    {
+        WAVHeader header = {};
+        if (fread(&header, 1, sizeof(header), trackFile) != sizeof(header) ||
+            !checkWAVHeader(header))
+        {
+            fclose(trackFile);
+            trackFile = nullptr;
+            return;
+        }
+
+        sourceFormat = SourceFormat::Wav;
+        wavDataEnd = (long)sizeof(WAVHeader) + (long)header.subchunk2Size;
+
+        rate = header.sampleRate;
+        format = getMMStreamType(header.numChannels, header.bitsPerSample);
     }
 
     stream_buffer_in = 0;
     stream_buffer_out = 0;
     streamingFillBuffer(true); // prime the circular buffer before opening
 
-    NEA_StreamOpen(header.sampleRate, 2048, streamingCallback,
-                   getMMStreamType(header.numChannels, header.bitsPerSample),
-                   MM_TIMER0);
+    NEA_StreamOpen(rate, 2048, streamingCallback, format, MM_TIMER0);
     active = true;
     currentPath = path;
 
@@ -236,10 +474,10 @@ void Music::Stop()
         return;
 
     NEA_StreamClose();
-    if (wavFile != nullptr)
+    if (trackFile != nullptr)
     {
-        fclose(wavFile);
-        wavFile = nullptr;
+        fclose(trackFile);
+        trackFile = nullptr;
     }
     stream_buffer_in = 0;
     stream_buffer_out = 0;
@@ -252,7 +490,7 @@ void Music::ApplyVolume()
     if (!active)
         return;
 
-    int32_t v = process.gamesettings.musicSoundVolume; // 0..1024
+    int32_t v = Settings().musicSoundVolume; // 0..1024
     if (v < 0)    v = 0;
     if (v > 1024) v = 1024;
 
@@ -288,7 +526,7 @@ void Music::SfxClick()
 
 void Music::ApplySfxVolume()
 {
-    int32_t v = process.gamesettings.nosesSoundVolume; // 0..1024
+    int32_t v = Settings().nosesSoundVolume; // 0..1024
     if (v < 0)    v = 0;
     if (v > 1024) v = 1024;
 

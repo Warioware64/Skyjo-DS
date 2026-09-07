@@ -9,7 +9,21 @@
 namespace Music
 {
     inline constexpr const char *MainMenuTrack  = "nitro:/music/mainMenu.wav";
+
+#ifdef SKYJO_CLIENT_ONLY
+    // The Download Play guest has no NitroFS, and a "nitro:" path would not
+    // merely miss -- nitrofs_isdrive() claims that drive name unconditionally,
+    // so the open is routed to a filesystem that was never initialised and
+    // fails with ENODEV. A relative path resolves through AssetDevice instead,
+    // which is the current drive there; the soundbank is reached the same way.
+    //
+    // The track itself is different too: 8000 Hz mono IMA-ADPCM rather than
+    // 11025 Hz stereo PCM, because on a guest it travels inside the binary at
+    // ~90 KB/s instead of being streamed off a card. See child/encode_music.py.
+    inline constexpr const char *GamePartyTrack = "music/gameMusic.ima";
+#else
     inline constexpr const char *GamePartyTrack = "nitro:/music/gameMusic.wav";
+#endif
 
     // Initialize maxmod once for the whole app. Idempotent. Must run after
     // nitroFSInit() and NEA_Init3D() (i.e. from Process::ProcessInit()).

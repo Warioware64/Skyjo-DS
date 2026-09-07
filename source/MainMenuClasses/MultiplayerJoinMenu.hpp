@@ -6,21 +6,21 @@
 class MultiplayerJoinMenu
 {
     private:
-        NEA_Material *BackMat[2];
-        NEA_Palette *BackPal[2];
-        NEA_GUIObj *BackButton;
+        NEA_Material * BackMat[2] = {};
+        NEA_Palette * BackPal[2] = {};
+        NEA_GUIObj * BackButton = nullptr;
 
-        NEA_Material *JoinMat[2];
-        NEA_Palette *JoinPal[2];
-        NEA_GUIObj *JoinButton;
+        NEA_Material * JoinMat[2] = {};
+        NEA_Palette * JoinPal[2] = {};
+        NEA_GUIObj * JoinButton = nullptr;
 
-        NEA_Material *PrevMat[2];
-        NEA_Palette *PrevPal[2];
-        NEA_GUIObj *PrevButton; // move selection up
+        NEA_Material * PrevMat[2] = {};
+        NEA_Palette * PrevPal[2] = {};
+        NEA_GUIObj * PrevButton = nullptr; // move selection up
 
-        NEA_Material *NextMat[2];
-        NEA_Palette *NextPal[2];
-        NEA_GUIObj *NextButton; // move selection down
+        NEA_Material * NextMat[2] = {};
+        NEA_Palette * NextPal[2] = {};
+        NEA_GUIObj * NextButton = nullptr; // move selection down
 
         // Scanning lists hosts; Connecting waits for association; WaitingStart
         // waits for the host's start handshake.
@@ -37,6 +37,9 @@ class MultiplayerJoinMenu
         std::vector<std::string> names;
 
         void RefreshApList();
+
+        // Leave the host we were talking to and return to the scan list.
+        void BackToScanning();
 
     public:
         int GetSeat() const { return this->seat; }

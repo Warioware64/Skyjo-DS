@@ -13,34 +13,34 @@ class OnePlayerPartyStart
         std::optional<CPULevel> old_cpu_level = std::nullopt;
         CPULevel cpu_level = CPULevel::Easy;
         
-        NEA_Material *EmptyMat;
-        NEA_Palette *EmptyPal;
+        NEA_Material * EmptyMat = nullptr;
+        NEA_Palette * EmptyPal = nullptr;
 
-        NEA_GUIObj *EmptyNumberCPUButton;
-        NEA_GUIObj *EmptyLevelCPUButton;
+        NEA_GUIObj * EmptyNumberCPUButton = nullptr;
+        NEA_GUIObj * EmptyLevelCPUButton = nullptr;
 
-        NEA_Material *NextPlayerMat[2];
-        NEA_Palette *NextPlayerPal[2];
+        NEA_Material * NextPlayerMat[2] = {};
+        NEA_Palette * NextPlayerPal[2] = {};
 
-        NEA_GUIObj *NextPlayerNumberCPUButton;
-        NEA_GUIObj *NextPlayerLevelCPUButton;
+        NEA_GUIObj * NextPlayerNumberCPUButton = nullptr;
+        NEA_GUIObj * NextPlayerLevelCPUButton = nullptr;
 
 
-        NEA_Material *PrevPlayerMat[2];
-        NEA_Palette *PrevPlayerPal[2];
+        NEA_Material * PrevPlayerMat[2] = {};
+        NEA_Palette * PrevPlayerPal[2] = {};
 
-        NEA_GUIObj *PrevPlayerNumberCPUButton;
-        NEA_GUIObj *PrevPlayerLevelCPUButton;
+        NEA_GUIObj * PrevPlayerNumberCPUButton = nullptr;
+        NEA_GUIObj * PrevPlayerLevelCPUButton = nullptr;
 
-        NEA_Material *StartGameMat[2];
-        NEA_Palette *StartGamePal[2];
+        NEA_Material * StartGameMat[2] = {};
+        NEA_Palette * StartGamePal[2] = {};
 
-        NEA_GUIObj *StartGameButton;
+        NEA_GUIObj * StartGameButton = nullptr;
 
-        NEA_Material *BackMat[2];
-        NEA_Palette *BackPal[2];
+        NEA_Material * BackMat[2] = {};
+        NEA_Palette * BackPal[2] = {};
 
-        NEA_GUIObj *BackButton;
+        NEA_GUIObj * BackButton = nullptr;
 
     public:
 

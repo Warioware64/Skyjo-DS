@@ -1,4 +1,5 @@
 #include "MultiplayerFirstMenu.hpp"
+#include "../NeaDelete.hpp"
 #include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "MainMenuStates.hpp"
@@ -25,6 +26,11 @@ void MultiplayerFirstMenu::LoadAssetsMultiplayerFirstMenu()
     this->BackPal[0] = NEA_PaletteCreate();
     this->BackPal[1] = NEA_PaletteCreate();
 
+    this->DlPlayMat[0] = NEA_MaterialCreate();
+    this->DlPlayMat[1] = NEA_MaterialCreate();
+    this->DlPlayPal[0] = NEA_PaletteCreate();
+    this->DlPlayPal[1] = NEA_PaletteCreate();
+
     assets.QueueTexGRF(this->HostMat[0], this->HostPal[0],
                        "mainmenu/btns/hostButton_png.grf");
 
@@ -44,19 +50,34 @@ void MultiplayerFirstMenu::LoadAssetsMultiplayerFirstMenu()
     assets.QueueTexGRF(this->BackMat[1], this->BackPal[1],
                        "mainmenu/btns/BackButtonPressed_png.grf");
 
+    assets.QueueTexGRF(this->DlPlayMat[0], this->DlPlayPal[0],
+                       "mainmenu/btns/DownloadPlayButton_png.grf");
 
-    this->HostButton = NEA_GUIButtonCreate(60, 50,
-                                            60 + 128, 50 + 32);
+    assets.QueueTexGRF(this->DlPlayMat[1], this->DlPlayPal[1],
+                       "mainmenu/btns/DownloadPlayButtonPressed_png.grf");
+
+
+    this->HostButton = NEA_GUIButtonCreate(60, 40,
+                                            60 + 128, 40 + 32);
     NEA_GUIButtonConfig(this->HostButton,
                         this->HostMat[0], NEA_White, 31,
                         this->HostMat[1], NEA_White, 31);
 
-    this->JoinButton = NEA_GUIButtonCreate(60, 100,
-                                            60 + 128, 100 + 32);
+    this->JoinButton = NEA_GUIButtonCreate(60, 85,
+                                            60 + 128, 85 + 32);
 
     NEA_GUIButtonConfig(this->JoinButton,
                         this->JoinMat[0], NEA_White, 31,
                         this->JoinMat[1], NEA_White, 31);
+
+    // Third way into a multiplayer game, for players whose friends don't own
+    // the cartridge: the host sends them the game instead.
+    this->DlPlayButton = NEA_GUIButtonCreate(60, 125,
+                                             60 + 128, 125 + 32);
+
+    NEA_GUIButtonConfig(this->DlPlayButton,
+                        this->DlPlayMat[0], NEA_White, 31,
+                        this->DlPlayMat[1], NEA_White, 31);
 
     this->BackButton = NEA_GUIButtonCreate(5, 160,
                                             5 + 64, 160 + 32);
@@ -70,27 +91,33 @@ void MultiplayerFirstMenu::LoadAssetsMultiplayerFirstMenu()
 
 void MultiplayerFirstMenu::UnloadAssetsMultiplayerFirstMenu()
 {
-    NEA_GUIDeleteObject(this->HostButton);
-    NEA_GUIDeleteObject(this->JoinButton);
-    NEA_GUIDeleteObject(this->BackButton);
+    DeleteGUI(this->HostButton);
+    DeleteGUI(this->JoinButton);
+    DeleteGUI(this->DlPlayButton);
+    DeleteGUI(this->BackButton);
 
-    NEA_MaterialDelete(this->HostMat[0]);
-    NEA_MaterialDelete(this->HostMat[1]);
+    DeleteMaterial(this->DlPlayMat[0]);
+    DeleteMaterial(this->DlPlayMat[1]);
+    DeletePalette(this->DlPlayPal[0]);
+    DeletePalette(this->DlPlayPal[1]);
 
-    NEA_MaterialDelete(this->JoinMat[0]);
-    NEA_MaterialDelete(this->JoinMat[1]);
+    DeleteMaterial(this->HostMat[0]);
+    DeleteMaterial(this->HostMat[1]);
 
-    NEA_MaterialDelete(this->BackMat[0]);
-    NEA_MaterialDelete(this->BackMat[1]);
+    DeleteMaterial(this->JoinMat[0]);
+    DeleteMaterial(this->JoinMat[1]);
 
-    NEA_PaletteDelete(this->HostPal[0]);
-    NEA_PaletteDelete(this->HostPal[1]);
+    DeleteMaterial(this->BackMat[0]);
+    DeleteMaterial(this->BackMat[1]);
 
-    NEA_PaletteDelete(this->JoinPal[0]);
-    NEA_PaletteDelete(this->JoinPal[1]);
+    DeletePalette(this->HostPal[0]);
+    DeletePalette(this->HostPal[1]);
 
-    NEA_PaletteDelete(this->BackPal[0]);
-    NEA_PaletteDelete(this->BackPal[1]);
+    DeletePalette(this->JoinPal[0]);
+    DeletePalette(this->JoinPal[1]);
+
+    DeletePalette(this->BackPal[0]);
+    DeletePalette(this->BackPal[1]);
 }
 
 std::optional<MainMenuStates> MultiplayerFirstMenu::ProcessLogicMultiplayerFirstMenu()
@@ -106,6 +133,10 @@ std::optional<MainMenuStates> MultiplayerFirstMenu::ProcessLogicMultiplayerFirst
     else if (GuiClicked(this->JoinButton))
     {
         return MainMenuStates::MultiplayerJoinMenu;
+    }
+    else if (GuiClicked(this->DlPlayButton))
+    {
+        return MainMenuStates::MultiplayerDlPlayMenu;
     }
     return std::nullopt;
 }

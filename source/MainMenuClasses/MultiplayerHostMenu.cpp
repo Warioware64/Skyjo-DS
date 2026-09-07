@@ -1,4 +1,5 @@
 #include "MultiplayerHostMenu.hpp"
+#include "../NeaDelete.hpp"
 #include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "../Net/NetLink.hpp"
@@ -12,6 +13,20 @@ namespace
 
     // Skyjo supports up to 8 seats total (host + clients + CPUs).
     constexpr int kMaxSeats = 8;
+
+    // How long to hold the waiting screen for Download Play guests that have
+    // been sent the game. Twenty seconds is several times what a reboot and
+    // re-association take, and falling through afterwards means one console that
+    // failed to boot cannot strand the host on a screen with no selector.
+    constexpr int kGuestWaitFrames = 20 * 60;
+
+    // How long a quiet spell ends the wait once at least one guest has arrived.
+    // The twenty seconds above is sized for a console that is still rebooting;
+    // five seconds after the last arrival is far longer than the gap between two
+    // consoles that both really booted, so anything still missing at that point
+    // is a phantom -- most often station mode's guest high-water mark counting a
+    // console that joined the room but never completed the transfer.
+    constexpr int kGuestSettleFrames = 5 * 60;
 
     GameNetStart MakeStart(int playerCount, int seat,
                            const std::vector<std::string>& names)
@@ -77,10 +92,59 @@ void MultiplayerHostMenu::LoadAssetsMultiplayerHostMenu()
     assets.QueueTexGRF(this->NextMat[1], this->NextPal[1],
                        "mainmenu/btns/NextPlayerButtonPressed_png.grf");
 
+    // Back exists in every phase: it is the host's only way out, including out
+    // of the wait below. Everything else is created by CreateLobbyButtons().
     this->BackButton = NEA_GUIButtonCreate(5, 160, 5 + 64, 160 + 32);
     NEA_GUIButtonConfig(this->BackButton,
                         this->BackMat[0], NEA_White, 31,
                         this->BackMat[1], NEA_White, 31);
+
+    // Arriving from Download Play, the guests are still rebooting and
+    // re-associating. Showing them a live CPU selector and a Start that silently
+    // refuses (it needs a client) reads as a broken screen, so hold everything
+    // back until they are actually here.
+    this->expectedGuests = this->pendingExpectedGuests;
+    this->pendingExpectedGuests = 0;
+    this->waitFrames = 0;
+    this->phase = (this->expectedGuests > 0) ? Phase::WaitingGuests : Phase::Lobby;
+
+    this->StartButton = nullptr;
+    this->PrevCpuCountButton = nullptr;
+    this->NextCpuCountButton = nullptr;
+    this->EmptyCpuCountButton = nullptr;
+    this->PrevCpuLevelButton = nullptr;
+    this->NextCpuLevelButton = nullptr;
+    this->EmptyCpuLevelButton = nullptr;
+
+    if (this->phase == Phase::Lobby)
+        this->CreateLobbyButtons();
+
+    this->startFrame = 0;
+    this->playerCount = 0;
+    this->humanCount = 0;
+    this->cpuCount = 0;
+    this->cpuLevel = CPULevel::Easy;
+    this->names.clear();
+    for (auto& n : this->clientNames) n.clear();
+    this->settleFrames = 0;
+
+    // Enter host mode and start beaconing so clients can find us.
+    NetLink::StartHost();
+
+    assets.Wait("Loading...");
+}
+
+// Start and the two CPU picker rows. Split out of LoadAssets because they are
+// created either there (a cart-to-cart host, which has nothing to wait for) or
+// later, when the last Download Play guest has rejoined.
+//
+// Creating them late is safe: NEA_GUIButtonCreate takes the first free slot and
+// all these rectangles are disjoint from Back's, and by then the textures have
+// certainly landed -- LoadAssets already drained the batch.
+void MultiplayerHostMenu::CreateLobbyButtons()
+{
+    if (this->StartButton != nullptr)
+        return;
 
     this->StartButton = NEA_GUIButtonCreate(190, 160, 190 + 64, 160 + 32);
     NEA_GUIButtonConfig(this->StartButton,
@@ -114,57 +178,45 @@ void MultiplayerHostMenu::LoadAssetsMultiplayerHostMenu()
     NEA_GUIButtonConfig(this->EmptyCpuLevelButton,
                         this->EmptyMat, NEA_White, 31,
                         this->EmptyMat, NEA_White, 31);
-
-    this->phase = Phase::Lobby;
-    this->startFrame = 0;
-    this->playerCount = 0;
-    this->humanCount = 0;
-    this->cpuCount = 0;
-    this->cpuLevel = CPULevel::Easy;
-    this->names.clear();
-    for (auto& n : this->clientNames) n.clear();
-
-    // Enter host mode and start beaconing so clients can find us.
-    NetLink::StartHost();
-
-    assets.Wait("Loading...");
 }
 
 void MultiplayerHostMenu::UnloadAssetsMultiplayerHostMenu()
 {
     // Only NEA teardown here. The WiFi link is shut down explicitly on the Back
     // path; on the start path it must stay alive for the game.
-    NEA_GUIDeleteObject(this->BackButton);
-    NEA_GUIDeleteObject(this->StartButton);
-    NEA_GUIDeleteObject(this->PrevCpuCountButton);
-    NEA_GUIDeleteObject(this->NextCpuCountButton);
-    NEA_GUIDeleteObject(this->EmptyCpuCountButton);
-    NEA_GUIDeleteObject(this->PrevCpuLevelButton);
-    NEA_GUIDeleteObject(this->NextCpuLevelButton);
-    NEA_GUIDeleteObject(this->EmptyCpuLevelButton);
+    // Null-safe: leaving during the waiting phase means the selector and Start
+    // were never created.
+    DeleteGUI(this->BackButton);
+    DeleteGUI(this->StartButton);
+    DeleteGUI(this->PrevCpuCountButton);
+    DeleteGUI(this->NextCpuCountButton);
+    DeleteGUI(this->EmptyCpuCountButton);
+    DeleteGUI(this->PrevCpuLevelButton);
+    DeleteGUI(this->NextCpuLevelButton);
+    DeleteGUI(this->EmptyCpuLevelButton);
 
-    NEA_MaterialDelete(this->BackMat[0]);
-    NEA_MaterialDelete(this->BackMat[1]);
-    NEA_PaletteDelete(this->BackPal[0]);
-    NEA_PaletteDelete(this->BackPal[1]);
+    DeleteMaterial(this->BackMat[0]);
+    DeleteMaterial(this->BackMat[1]);
+    DeletePalette(this->BackPal[0]);
+    DeletePalette(this->BackPal[1]);
 
-    NEA_MaterialDelete(this->StartMat[0]);
-    NEA_MaterialDelete(this->StartMat[1]);
-    NEA_PaletteDelete(this->StartPal[0]);
-    NEA_PaletteDelete(this->StartPal[1]);
+    DeleteMaterial(this->StartMat[0]);
+    DeleteMaterial(this->StartMat[1]);
+    DeletePalette(this->StartPal[0]);
+    DeletePalette(this->StartPal[1]);
 
-    NEA_MaterialDelete(this->EmptyMat);
-    NEA_PaletteDelete(this->EmptyPal);
+    DeleteMaterial(this->EmptyMat);
+    DeletePalette(this->EmptyPal);
 
-    NEA_MaterialDelete(this->PrevMat[0]);
-    NEA_MaterialDelete(this->PrevMat[1]);
-    NEA_PaletteDelete(this->PrevPal[0]);
-    NEA_PaletteDelete(this->PrevPal[1]);
+    DeleteMaterial(this->PrevMat[0]);
+    DeleteMaterial(this->PrevMat[1]);
+    DeletePalette(this->PrevPal[0]);
+    DeletePalette(this->PrevPal[1]);
 
-    NEA_MaterialDelete(this->NextMat[0]);
-    NEA_MaterialDelete(this->NextMat[1]);
-    NEA_PaletteDelete(this->NextPal[0]);
-    NEA_PaletteDelete(this->NextPal[1]);
+    DeleteMaterial(this->NextMat[0]);
+    DeleteMaterial(this->NextMat[1]);
+    DeletePalette(this->NextPal[0]);
+    DeletePalette(this->NextPal[1]);
 }
 
 std::optional<MainMenuStates> MultiplayerHostMenu::ProcessLogicMultiplayerHostMenu()
@@ -184,12 +236,50 @@ std::optional<MainMenuStates> MultiplayerHostMenu::ProcessLogicMultiplayerHostMe
         return std::nullopt;
     }
 
-    // Collect the console names clients announce over their Hello frames.
+    // Collect the console names clients announce over their Hello frames. This
+    // runs during the wait too -- a guest announces itself as soon as it
+    // associates, so by the time the lobby opens the roster already has real
+    // names in it. HostPollHello is one-shot, so a missed frame here is a name
+    // lost for good.
+    int guestsBefore = NetLink::HostNumClients();
+
     for (int aid = 1; aid <= NetLink::kMaxClients; ++aid)
     {
         GameNetHello hello;
         if (NetLink::HostPollHello(aid, hello))
             this->clientNames.at(aid) = hello.name;
+    }
+
+    if (this->phase == Phase::WaitingGuests)
+    {
+        // Back is the only control on screen, so it is the only one to test.
+        if (GuiClicked(this->BackButton))
+        {
+            // Guests that just arrived over Download Play are already
+            // associating with this beacon; tell them it is going rather than
+            // leaving them to retry against a host that no longer exists.
+            NetLink::HostAnnounceBye(NetByeReason::HostLeftLobby);
+            NetLink::Shutdown();
+            return MainMenuStates::MultiplayerFirstMenu;
+        }
+
+        int guests = NetLink::HostNumClients();
+        if (guests > guestsBefore)
+            this->settleFrames = 0;      // somebody just arrived
+        else
+            ++this->settleFrames;
+
+        // Everyone is back; or they have stopped arriving and whatever is still
+        // missing was never coming; or none of them ever showed. Any of the
+        // three, the host gets its lobby rather than sitting here.
+        if (guests >= this->expectedGuests ||
+            (guests > 0 && this->settleFrames >= kGuestSettleFrames) ||
+            ++this->waitFrames >= kGuestWaitFrames)
+        {
+            this->CreateLobbyButtons();
+            this->phase = Phase::Lobby;
+        }
+        return std::nullopt;
     }
 
     int liveHumanCount = NetLink::HostNumClients() + 1;
@@ -218,6 +308,9 @@ std::optional<MainMenuStates> MultiplayerHostMenu::ProcessLogicMultiplayerHostMe
 
     if (GuiClicked(this->BackButton))
     {
+        // Anyone waiting in the lobby is told the game is off, so they drop
+        // straight back to scanning instead of sitting on "waiting for start".
+        NetLink::HostAnnounceBye(NetByeReason::HostLeftLobby);
         NetLink::Shutdown();
         return MainMenuStates::MultiplayerFirstMenu;
     }
@@ -268,6 +361,16 @@ void MultiplayerHostMenu::ActionMultiplayerHostMenu()
 {
     NEA_GUIDraw();
     NEA_RichTextRender3D(0, "HOST GAME", 90, 6);
+
+    if (this->phase == Phase::WaitingGuests)
+    {
+        NEA_RichTextRender3D(0, "Waiting for players...", 52, 60);
+
+        std::string count = std::to_string(NetLink::HostNumClients()) + " / " +
+                            std::to_string(this->expectedGuests);
+        NEA_RichTextRender3D(0, count.c_str(), 110, 90);
+        return;
+    }
 
     if (this->phase == Phase::Lobby)
     {

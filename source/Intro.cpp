@@ -1,4 +1,5 @@
 #include "Intro.hpp"
+#include "NeaDelete.hpp"
 #include "AssetLoader.hpp"
 #include "ErrorHandler.hpp"
 
@@ -63,6 +64,7 @@ void Intro::LoadAssetsIntro()
     assets.QueueBGGRF(this->bgBot, "intro/MainSCREEN_png.grf", 0);
     assets.Wait("Loading...");
 
+    ClearBackdropToWhite();
     NEA_Hw2DBGSetVisible(this->bgTop, true);
     NEA_Hw2DBGSetVisible(this->bgBot, true);
 
@@ -138,8 +140,8 @@ void Intro::UnloadAssetsIntro()
     // short while they were still in flight.
     this->swap.Wait("Loading...");
 
-    NEA_Hw2DBGDelete(this->bgTop);
-    NEA_Hw2DBGDelete(this->bgBot);
+    DeleteBG(this->bgTop);
+    DeleteBG(this->bgBot);
     this->bgTop = nullptr;
     this->bgBot = nullptr;
     DEBUG_PRINT("Intro::UnloadAssetsIntro() : Assets Unloaded");

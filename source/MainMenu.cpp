@@ -1,9 +1,11 @@
 #include "MainMenu.hpp"
+#include "NeaDelete.hpp"
 #include "AssetLoader.hpp"
 #include "ErrorHandler.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
 #include "MainMenuClasses/MainSelectionMenu.hpp"
 #include "Music.hpp"
+#include "Net/NetLink.hpp"
 #include "Process.hpp"
 #include "globalHeader.hpp"
 
@@ -84,6 +86,11 @@ void MainMenu::SCREEN_TOP()
             this->multiplayerJoinmenu.ActionMultiplayerJoinMenu();
             break;
         }
+        case MainMenuStates::MultiplayerDlPlayMenu:
+        {
+            this->multiplayerDlPlaymenu.ActionMultiplayerDlPlayMenu();
+            break;
+        }
         case MainMenuStates::SettingsMenu:
         {
             this->settingsMenu.ActionSettingsMenu();
@@ -161,13 +168,31 @@ void MainMenu::CreateHexBackgrounds()
 
     assets.Wait("Loading...");
 
-    // Only show them once the tiles and maps are really in VRAM.
+    // Only show them once the tiles and maps are really in VRAM, and take the
+    // backdrop off grit's magenta transparency key while we are here.
+    ClearBackdropToWhite();
     NEA_Hw2DBGSetVisible(this->hexBGtop, true);
     NEA_Hw2DBGSetVisible(this->hexBGbot, true);
 }
 
 void MainMenu::LoadAssetsMainMenu()
 {
+    // Hand the wireless back before anything else.
+    //
+    // This runs on every return to the menu, which is the one point every way
+    // out of a party passes through, and it is the only place the library is
+    // ever fully released: NetLink::Shutdown() leaves the stack initialised so
+    // that re-hosting from inside the multiplayer menus stays instant, and the
+    // multiplayer screens live inside RenderMainMenu() without coming back
+    // through here, so the Download Play handoff that deliberately keeps its
+    // link alive is untouched.
+    //
+    // It goes first, before the filesystem work below and before any asset
+    // batch: dswifi is blunt that a card read blocks long enough to disturb
+    // wireless timing, and the same applies while the ARM7 is being shut down.
+    // On the first boot there is nothing to release and this does nothing.
+    NetLink::PowerDown();
+
     // Reset the menu back to the title screen on every (re)entry. When the menu
     // is re-loaded after quitting a game party it is otherwise left in the
     // TransitionToPlayOnePlayer state, which renders nothing and handles no
@@ -223,6 +248,8 @@ void MainMenu::LoadAssetsMainMenu()
                 this->multiplayerHostmenu.LoadAssetsMultiplayerHostMenu(); break;
             case MainMenuStates::MultiplayerJoinMenu:
                 this->multiplayerJoinmenu.LoadAssetsMultiplayerJoinMenu(); break;
+            case MainMenuStates::MultiplayerDlPlayMenu:
+                this->multiplayerDlPlaymenu.LoadAssetsMultiplayerDlPlayMenu(); break;
             case MainMenuStates::SettingsMenu:
                 this->settingsMenu.LoadAssetsSettingsMenu(); break;
             default: break;
@@ -288,22 +315,22 @@ void MainMenu::UnloadAssetsMainMenu()
     // LoadAssetsMainMenu().
     Music::Stop();
 
-    NEA_ParticleEmitterDelete(this->hexEmit);
+    DeleteEmitter(this->hexEmit);
     this->hexEmit = nullptr;
-    NEA_MaterialDelete(this->hexParMat);
+    DeleteMaterial(this->hexParMat);
     this->hexParMat = nullptr;
-    NEA_PaletteDelete(this->hexParPal);
+    DeletePalette(this->hexParPal);
     this->hexParPal = nullptr;
 
-    NEA_CameraDelete(this->emitCam);
+    DeleteCamera(this->emitCam);
     this->emitCam = nullptr;
 
     // The backgrounds go last: deleting them hands their tile and map blocks
     // back to the allocator and hides the layers, which is what lets the game
     // party claim the same two layers for its own artwork.
-    NEA_Hw2DBGDelete(this->hexBGbot);
+    DeleteBG(this->hexBGbot);
     this->hexBGbot = nullptr;
-    NEA_Hw2DBGDelete(this->hexBGtop);
+    DeleteBG(this->hexBGtop);
     this->hexBGtop = nullptr;
 }
 
@@ -401,6 +428,12 @@ void MainMenu::RenderMainMenu()
                         this->StartTransitionTo(*next);
                     break;
                 }
+                case MainMenuStates::MultiplayerDlPlayMenu:
+                {
+                    if (auto next = this->multiplayerDlPlaymenu.ProcessLogicMultiplayerDlPlayMenu())
+                        this->StartTransitionTo(*next);
+                    break;
+                }
                 case MainMenuStates::SettingsMenu:
                 {
                     if (auto next = this->settingsMenu.ProcessLogicSettingsMenu())
@@ -447,6 +480,16 @@ void MainMenu::RenderMainMenu()
                                 this->multiplayerHostmenu.UnloadAssetsMultiplayerHostMenu(); break;
                             case MainMenuStates::MultiplayerJoinMenu:
                                 this->multiplayerJoinmenu.UnloadAssetsMultiplayerJoinMenu(); break;
+                            case MainMenuStates::MultiplayerDlPlayMenu:
+                                // Leaving Download Play: tell the host lobby how
+                                // many consoles were just sent the game, so it
+                                // can wait for them instead of opening an empty
+                                // selector while they reboot. Zero on the Back
+                                // path, which is what makes an ordinary
+                                // cart-to-cart host skip the wait.
+                                this->multiplayerHostmenu.ExpectDownloadPlayGuests(
+                                    this->multiplayerDlPlaymenu.GetBootedGuestCount());
+                                this->multiplayerDlPlaymenu.UnloadAssetsMultiplayerDlPlayMenu(); break;
                             case MainMenuStates::SettingsMenu:
                                 this->settingsMenu.UnloadAssetsSettingsMenu(); break;
                             case MainMenuStates::TransitionToPlayOnePlayer:
@@ -474,6 +517,8 @@ void MainMenu::RenderMainMenu()
                                 this->multiplayerHostmenu.LoadAssetsMultiplayerHostMenu(); break;
                             case MainMenuStates::MultiplayerJoinMenu:
                                 this->multiplayerJoinmenu.LoadAssetsMultiplayerJoinMenu(); break;
+                            case MainMenuStates::MultiplayerDlPlayMenu:
+                                this->multiplayerDlPlaymenu.LoadAssetsMultiplayerDlPlayMenu(); break;
                             case MainMenuStates::SettingsMenu:
                                 this->settingsMenu.LoadAssetsSettingsMenu(); break;
                             case MainMenuStates::TransitionToPlayOnePlayer:

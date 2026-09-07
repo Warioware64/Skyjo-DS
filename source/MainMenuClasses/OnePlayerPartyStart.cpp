@@ -1,4 +1,5 @@
 #include "OnePlayerPartyStart.hpp"
+#include "../NeaDelete.hpp"
 #include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "MainMenu.hpp"
@@ -155,42 +156,42 @@ void OnePlayerPartyStart::LoadAssetsOnePlayerPartyStart()
 
 void OnePlayerPartyStart::UnloadAssetsOnePlayerPartyStart()
 {
-    NEA_GUIDeleteObject(this->EmptyNumberCPUButton);
-    NEA_GUIDeleteObject(this->EmptyLevelCPUButton);
-    NEA_GUIDeleteObject(this->NextPlayerNumberCPUButton);
-    NEA_GUIDeleteObject(this->NextPlayerLevelCPUButton);
+    DeleteGUI(this->EmptyNumberCPUButton);
+    DeleteGUI(this->EmptyLevelCPUButton);
+    DeleteGUI(this->NextPlayerNumberCPUButton);
+    DeleteGUI(this->NextPlayerLevelCPUButton);
 
-    NEA_GUIDeleteObject(this->PrevPlayerNumberCPUButton);
-    NEA_GUIDeleteObject(this->PrevPlayerLevelCPUButton);
-    NEA_GUIDeleteObject(this->StartGameButton);
-    NEA_GUIDeleteObject(this->BackButton);
+    DeleteGUI(this->PrevPlayerNumberCPUButton);
+    DeleteGUI(this->PrevPlayerLevelCPUButton);
+    DeleteGUI(this->StartGameButton);
+    DeleteGUI(this->BackButton);
 
-    NEA_MaterialDelete(this->EmptyMat);
-    NEA_PaletteDelete(this->EmptyPal);
+    DeleteMaterial(this->EmptyMat);
+    DeletePalette(this->EmptyPal);
 
-    NEA_MaterialDelete(this->NextPlayerMat[0]);
-    NEA_PaletteDelete(this->NextPlayerPal[0]);
+    DeleteMaterial(this->NextPlayerMat[0]);
+    DeletePalette(this->NextPlayerPal[0]);
 
-    NEA_MaterialDelete(this->NextPlayerMat[1]);
-    NEA_PaletteDelete(this->NextPlayerPal[1]);
+    DeleteMaterial(this->NextPlayerMat[1]);
+    DeletePalette(this->NextPlayerPal[1]);
 
-    NEA_MaterialDelete(this->PrevPlayerMat[0]);
-    NEA_PaletteDelete(this->PrevPlayerPal[0]);
+    DeleteMaterial(this->PrevPlayerMat[0]);
+    DeletePalette(this->PrevPlayerPal[0]);
 
-    NEA_MaterialDelete(this->PrevPlayerMat[1]);
-    NEA_PaletteDelete(this->PrevPlayerPal[1]);
+    DeleteMaterial(this->PrevPlayerMat[1]);
+    DeletePalette(this->PrevPlayerPal[1]);
 
-    NEA_MaterialDelete(this->BackMat[0]);
-    NEA_PaletteDelete(this->BackPal[0]);
+    DeleteMaterial(this->BackMat[0]);
+    DeletePalette(this->BackPal[0]);
 
-    NEA_MaterialDelete(this->BackMat[1]);
-    NEA_PaletteDelete(this->BackPal[1]);
+    DeleteMaterial(this->BackMat[1]);
+    DeletePalette(this->BackPal[1]);
 
-    NEA_MaterialDelete(this->StartGameMat[0]);
-    NEA_PaletteDelete(this->StartGamePal[0]);
+    DeleteMaterial(this->StartGameMat[0]);
+    DeletePalette(this->StartGamePal[0]);
 
-    NEA_MaterialDelete(this->StartGameMat[1]);
-    NEA_PaletteDelete(this->StartGamePal[1]);
+    DeleteMaterial(this->StartGameMat[1]);
+    DeletePalette(this->StartGamePal[1]);
 }
 
 std::optional<MainMenuStates> OnePlayerPartyStart::ProcessLogicOnePlayerPartyStart()

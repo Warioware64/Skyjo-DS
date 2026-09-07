@@ -6,6 +6,7 @@
 #include "globalHeader.hpp"
 #include "AssetLoader.hpp"
 #include "ErrorHandler.hpp"
+#include "Net/NetLink.hpp"
 
 #include <nds/arm9/dldi.h>   // dldiSetMode / DLDI_MODE_ARM7
 
@@ -89,6 +90,16 @@ void Process::CallInitializationMultiplayerClient(int seat, int player_count,
    this->mp_seat_arg = seat;
    this->mp_player_count_arg = player_count;
    this->mp_names_arg = names;
+}
+
+void Process::ReturnToMainMenu()
+{
+    // Shutdown() before the states change: it is what actually drops the link
+    // and leaves the ARM7 in a state the next host can start from.
+    NetLink::Shutdown();
+
+    this->classstates = ClassStates::Init;
+    this->menustates = MenusStates::MainMenu;
 }
 
 void Process::ProcessInit()

@@ -12,6 +12,7 @@
 #include "MainMenuClasses/MultiplayerFirstMenu.hpp"
 #include "MainMenuClasses/MultiplayerHostMenu.hpp"
 #include "MainMenuClasses/MultiplayerJoinMenu.hpp"
+#include "MainMenuClasses/MultiplayerDlPlayMenu.hpp"
 #include "MainMenuClasses/SettingsMenu.hpp"
 
 class MainMenu
@@ -51,6 +52,7 @@ class MainMenu
         MultiplayerFirstMenu multiplayerFirstMenu;
         MultiplayerHostMenu multiplayerHostmenu;
         MultiplayerJoinMenu multiplayerJoinmenu;
+        MultiplayerDlPlayMenu multiplayerDlPlaymenu;
         SettingsMenu settingsMenu;
 
         MainMenuStates mainmenustates = MainMenuStates::MainTitle;

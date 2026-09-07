@@ -67,7 +67,11 @@ class GameParty
         void ApplySnapshot(const GameNetSnapshot& s); // client: render from state
         void NetHostBroadcastIfChanged();          // host: send snapshot on change
         void NetClientSendInput(IPlayerController& input); // client: emit intents
+        void ClientTeardown();                     // client: leave a dead party
         std::vector<uint8_t> netLastSnapshot;      // last bytes sent (change detect)
+        int netKeepAliveFrames = 0;                // host: frames since last send
+        int netSilentFrames = 0;                   // client: frames since last recv
+        bool netSilentArmed = false;               // client: seen a snapshot yet
 
         void TickInitialReveal();
         void TickTurn();
@@ -109,50 +113,50 @@ class GameParty
         // to make sure it runs exactly once.
         bool assetsLoaded = false;
 
-        NEA_Material *ContinueButtonMat;
-        NEA_Palette *ContinueButtonPal;
-        NEA_Material *ContinueButtonPressedMat;
-        NEA_Palette *ContinueButtonPressedPal;
-        NEA_GUIObj *ContinueButton;
+        NEA_Material * ContinueButtonMat = nullptr;
+        NEA_Palette * ContinueButtonPal = nullptr;
+        NEA_Material * ContinueButtonPressedMat = nullptr;
+        NEA_Palette * ContinueButtonPressedPal = nullptr;
+        NEA_GUIObj * ContinueButton = nullptr;
 
-        NEA_Material *QuitButtonMat;
-        NEA_Palette *QuitButtonPal;
-        NEA_Material *QuitButtonPressedMat;
-        NEA_Palette *QuitButtonPressedPal;
-        NEA_GUIObj *QuitButton;
+        NEA_Material * QuitButtonMat = nullptr;
+        NEA_Palette * QuitButtonPal = nullptr;
+        NEA_Material * QuitButtonPressedMat = nullptr;
+        NEA_Palette * QuitButtonPressedPal = nullptr;
+        NEA_GUIObj * QuitButton = nullptr;
 
-        NEA_Material *YesButtonMat;
-        NEA_Palette *YesButtonPal;
-        NEA_Material *YesButtonPressedMat;
-        NEA_Palette *YesButtonPressedPal;
-        NEA_GUIObj *YesButton;
+        NEA_Material * YesButtonMat = nullptr;
+        NEA_Palette * YesButtonPal = nullptr;
+        NEA_Material * YesButtonPressedMat = nullptr;
+        NEA_Palette * YesButtonPressedPal = nullptr;
+        NEA_GUIObj * YesButton = nullptr;
 
-        NEA_Material *NoButtonMat;
-        NEA_Palette *NoButtonPal;
-        NEA_Material *NoButtonPressedMat;
-        NEA_Palette *NoButtonPressedPal;
-        NEA_GUIObj *NoButton;
+        NEA_Material * NoButtonMat = nullptr;
+        NEA_Palette * NoButtonPal = nullptr;
+        NEA_Material * NoButtonPressedMat = nullptr;
+        NEA_Palette * NoButtonPressedPal = nullptr;
+        NEA_GUIObj * NoButton = nullptr;
 
-        NEA_Material *ReplayButtonMat;
-        NEA_Palette *ReplayButtonPal;
-        NEA_Material *ReplayButtonPressedMat;
-        NEA_Palette *ReplayButtonPressedPal;
-        NEA_GUIObj *ReplayButton;
+        NEA_Material * ReplayButtonMat = nullptr;
+        NEA_Palette * ReplayButtonPal = nullptr;
+        NEA_Material * ReplayButtonPressedMat = nullptr;
+        NEA_Palette * ReplayButtonPressedPal = nullptr;
+        NEA_GUIObj * ReplayButton = nullptr;
 
-        NEA_Material *ExitButtonMat;
-        NEA_Palette *ExitButtonPal;
-        NEA_Material *ExitButtonPressedMat;
-        NEA_Palette *ExitButtonPressedPal;
-        NEA_GUIObj *ExitButton;
+        NEA_Material * ExitButtonMat = nullptr;
+        NEA_Palette * ExitButtonPal = nullptr;
+        NEA_Material * ExitButtonPressedMat = nullptr;
+        NEA_Palette * ExitButtonPressedPal = nullptr;
+        NEA_GUIObj * ExitButton = nullptr;
 
-        NEA_Material *SaveButtonMat;
-        NEA_Palette *SaveButtonPal;
-        NEA_Material *SaveButtonPressedMat;
-        NEA_Palette *SaveButtonPressedPal;
-        NEA_GUIObj *SaveButton;
+        NEA_Material * SaveButtonMat = nullptr;
+        NEA_Palette * SaveButtonPal = nullptr;
+        NEA_Material * SaveButtonPressedMat = nullptr;
+        NEA_Palette * SaveButtonPressedPal = nullptr;
+        NEA_GUIObj * SaveButton = nullptr;
 
-        NEA_Material *NotPossibleIconMat;
-        NEA_Palette *NotPossibleIconPal;
+        NEA_Material * NotPossibleIconMat = nullptr;
+        NEA_Palette * NotPossibleIconPal = nullptr;
 
         bool partyFirstTwoDraw;
         bool awaitingDiscardReveal;
@@ -208,7 +212,6 @@ class GameParty
         std::optional<CardType> heldCard;
 
         int topScreenViewPlayerIdx;
-        uint32_t prevKeydown;
 
         bool StartMenu;
         bool Quited;
@@ -251,7 +254,15 @@ class GameParty
         // and render/drive it purely from host snapshots.
         void InitGamePartyClient(int seatIndex, int playerCnt,
                                  const std::vector<std::string>& names);
-        void RenderGamePartyClient();
+
+        // Why the client's render loop gave up. Both mean the host is gone, but
+        // they are worth telling apart on screen: HostLeft is a host that shut
+        // its link down on purpose (quit or ended the game), HostSilent is one
+        // that stopped answering while still associated -- powered off, out of
+        // range, or crashed.
+        enum class ClientExit { HostLeft, HostSilent };
+
+        ClientExit RenderGamePartyClient();
 
         // NOTE: 'controllers' is intentionally NOT serialized — it's a vector of
         // std::unique_ptr<IPlayerController> (polymorphic), which yas can't

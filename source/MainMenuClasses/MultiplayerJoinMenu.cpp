@@ -1,4 +1,5 @@
 #include "MultiplayerJoinMenu.hpp"
+#include "../NeaDelete.hpp"
 #include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "../Net/NetLink.hpp"
@@ -92,30 +93,30 @@ void MultiplayerJoinMenu::LoadAssetsMultiplayerJoinMenu()
 
 void MultiplayerJoinMenu::UnloadAssetsMultiplayerJoinMenu()
 {
-    NEA_GUIDeleteObject(this->BackButton);
-    NEA_GUIDeleteObject(this->JoinButton);
-    NEA_GUIDeleteObject(this->PrevButton);
-    NEA_GUIDeleteObject(this->NextButton);
+    DeleteGUI(this->BackButton);
+    DeleteGUI(this->JoinButton);
+    DeleteGUI(this->PrevButton);
+    DeleteGUI(this->NextButton);
 
-    NEA_MaterialDelete(this->BackMat[0]);
-    NEA_MaterialDelete(this->BackMat[1]);
-    NEA_PaletteDelete(this->BackPal[0]);
-    NEA_PaletteDelete(this->BackPal[1]);
+    DeleteMaterial(this->BackMat[0]);
+    DeleteMaterial(this->BackMat[1]);
+    DeletePalette(this->BackPal[0]);
+    DeletePalette(this->BackPal[1]);
 
-    NEA_MaterialDelete(this->JoinMat[0]);
-    NEA_MaterialDelete(this->JoinMat[1]);
-    NEA_PaletteDelete(this->JoinPal[0]);
-    NEA_PaletteDelete(this->JoinPal[1]);
+    DeleteMaterial(this->JoinMat[0]);
+    DeleteMaterial(this->JoinMat[1]);
+    DeletePalette(this->JoinPal[0]);
+    DeletePalette(this->JoinPal[1]);
 
-    NEA_MaterialDelete(this->PrevMat[0]);
-    NEA_MaterialDelete(this->PrevMat[1]);
-    NEA_PaletteDelete(this->PrevPal[0]);
-    NEA_PaletteDelete(this->PrevPal[1]);
+    DeleteMaterial(this->PrevMat[0]);
+    DeleteMaterial(this->PrevMat[1]);
+    DeletePalette(this->PrevPal[0]);
+    DeletePalette(this->PrevPal[1]);
 
-    NEA_MaterialDelete(this->NextMat[0]);
-    NEA_MaterialDelete(this->NextMat[1]);
-    NEA_PaletteDelete(this->NextPal[0]);
-    NEA_PaletteDelete(this->NextPal[1]);
+    DeleteMaterial(this->NextMat[0]);
+    DeleteMaterial(this->NextMat[1]);
+    DeletePalette(this->NextPal[0]);
+    DeletePalette(this->NextPal[1]);
 }
 
 void MultiplayerJoinMenu::RefreshApList()
@@ -141,6 +142,22 @@ void MultiplayerJoinMenu::RefreshApList()
     if (this->selected >= static_cast<int>(this->apIndices.size()))
         this->selected = static_cast<int>(this->apIndices.size()) - 1;
     if (this->selected < 0) this->selected = 0;
+}
+
+// Drop the host we were talking to and go back to the list.
+//
+// StartClientScan() rather than a bare phase change: the stack is still pointed
+// at a console that has gone, and the latched "the host has left" flags have to
+// be cleared or the next attempt would give up the moment it succeeded. Both are
+// what StartClientScan() already does for a fresh entry into this screen.
+void MultiplayerJoinMenu::BackToScanning()
+{
+    NetLink::StartClientScan();
+
+    this->phase = Phase::Scanning;
+    this->selected = 0;
+    this->apIndices.clear();
+    this->apNames.clear();
 }
 
 std::optional<MainMenuStates> MultiplayerJoinMenu::ProcessLogicMultiplayerJoinMenu()
@@ -187,7 +204,11 @@ std::optional<MainMenuStates> MultiplayerJoinMenu::ProcessLogicMultiplayerJoinMe
 
         case Phase::Connecting:
         {
-            if (NetLink::ClientAssociated())
+            // A host that quits while we are on our way in counts as a failed
+            // connection, not as one still in progress.
+            if (NetLink::ClientHostSaidBye())
+                this->BackToScanning();
+            else if (NetLink::ClientAssociated())
                 this->phase = Phase::WaitingStart;
             else if (NetLink::ClientConnectFailed())
                 this->phase = Phase::Scanning;
@@ -196,6 +217,16 @@ std::optional<MainMenuStates> MultiplayerJoinMenu::ProcessLogicMultiplayerJoinMe
 
         case Phase::WaitingStart:
         {
+            // The host said it is leaving, or its beacon went away. Either way
+            // there is no game coming, and this screen used to have no way of
+            // finding that out at all -- it simply waited for a start message
+            // that was never going to arrive. Go back to looking for a host.
+            if (NetLink::ClientHostSaidBye() || NetLink::ClientLostHost())
+            {
+                this->BackToScanning();
+                break;
+            }
+
             GameNetStart start;
             if (NetLink::ClientPollStart(start))
             {

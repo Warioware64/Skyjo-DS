@@ -41,6 +41,7 @@
 
 # Build directories
 build/
+child/generated/
 Build/
 build-*/
 

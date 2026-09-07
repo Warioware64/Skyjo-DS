@@ -1,5 +1,6 @@
 #include "GameParty.hpp"
 #include "GuiClickSound.hpp"
+#include "NeaDelete.hpp"
 #include "MainMenu.hpp"
 #include "MainMenuClasses/MainMenuStates.hpp"
 #include "Music.hpp"
@@ -60,51 +61,6 @@ namespace
         return handle;
     }
 
-    // Deletes an engine object and clears the caller's handle. Teardown has
-    // eight entry points, and NEA_MaterialDelete() dereferences its argument
-    // before looking it up in the pool, so a second delete of an already-freed
-    // pointer is a use-after-free rather than a harmless no-op.
-    void DeleteMaterial(NEA_Material *&mat)
-    {
-        if (mat == nullptr) return;
-        NEA_MaterialDelete(mat);
-        mat = nullptr;
-    }
-
-    void DeletePalette(NEA_Palette *&pal)
-    {
-        if (pal == nullptr) return;
-        NEA_PaletteDelete(pal);
-        pal = nullptr;
-    }
-
-    void DeleteOBJ(NEA_Hw2DOBJ *&obj)
-    {
-        if (obj == nullptr) return;
-        NEA_Hw2DOBJDelete(obj);
-        obj = nullptr;
-    }
-
-    void DeleteOBJAsset(NEA_Hw2DOBJAsset *&asset)
-    {
-        if (asset == nullptr) return;
-        NEA_Hw2DOBJAssetDelete(asset);
-        asset = nullptr;
-    }
-
-    void DeleteBG(NEA_Hw2DBG *&bg)
-    {
-        if (bg == nullptr) return;
-        NEA_Hw2DBGDelete(bg);
-        bg = nullptr;
-    }
-
-    void DeleteGUI(NEA_GUIObj *&obj)
-    {
-        if (obj == nullptr) return;
-        NEA_GUIDeleteObject(obj);
-        obj = nullptr;
-    }
 }
 
 GameParty::GameParty()
@@ -117,6 +73,7 @@ GameParty::~GameParty()
 
 }
 
+#ifndef SKYJO_CLIENT_ONLY // the per-frame host game logic
 void GameParty::GamePartyLogic()
 {
     // Fresh per frame; EmitSfx() uses it to start each effect at most once.
@@ -137,6 +94,7 @@ void GameParty::GamePartyLogic()
         case GamePhase::Ended:                              break;
     }
 }
+#endif // SKYJO_CLIENT_ONLY
 
 // All three Destroy* below are idempotent: they clear the handles they delete,
 // so UnloadGamePartyAssets() can call every one of them unconditionally without
@@ -147,6 +105,7 @@ void GameParty::DestroyQuitMenu()
     DeleteGUI(this->NoButton);
 }
 
+#ifndef SKYJO_CLIENT_ONLY // quit menu construction
 void GameParty::InitQuitMenu()
 {
     this->YesButton = NEA_GUIButtonCreate( 89, 60,
@@ -162,6 +121,7 @@ void GameParty::InitQuitMenu()
          this->NoButtonMat, NEA_White, 31,
         this->NoButtonPressedMat, NEA_White, 31);   
 }
+#endif // SKYJO_CLIENT_ONLY
 
 void GameParty::DestroyPauseMenuMain()
 {
@@ -170,6 +130,7 @@ void GameParty::DestroyPauseMenuMain()
     DeleteGUI(this->SaveButton);
 }
 
+#ifndef SKYJO_CLIENT_ONLY // pause menu logic
 void GameParty::PauseMenuGUIlogic()
 {
     if (this->pausephase == PausePhase::PauseMenuMain)
@@ -187,7 +148,8 @@ void GameParty::PauseMenuGUIlogic()
             this->InitQuitMenu();
             
         }
-        else if ( GuiClicked(this->SaveButton))
+        else if (this->partyType == PartyType::OnePlayerCPU &&
+                 GuiClicked(this->SaveButton))
         {
             this->pausephase = PausePhase::SaveMenu;
             this->DestroyPauseMenuMain();
@@ -209,8 +171,23 @@ void GameParty::PauseMenuGUIlogic()
             this->DestroyQuitMenu();
             this->UnloadGamePartyAssets();
             this->Quited = true;
-            mainmenu.mainmenustates = MainMenuStates::OnePlayerPartyStart;
-            mainmenu.bypassableChangeMenuStates = true;
+
+            if (this->partyType == PartyType::LocalMultiplayer)
+            {
+                // Say so before dropping the link. Clients can work out that the
+                // host has gone on their own, but only by waiting out half a
+                // second of missing association or three seconds of silence, and
+                // for all that time they sit in front of a table that will never
+                // move again. A goodbye costs a fraction of a second here and
+                // turns that wait into nothing.
+                NetLink::HostAnnounceBye(NetByeReason::HostEndedGame);
+                process.ReturnToMainMenu();
+            }
+            else
+            {
+                mainmenu.mainmenustates = MainMenuStates::OnePlayerPartyStart;
+                mainmenu.bypassableChangeMenuStates = true;
+            }
             /*
             constexpr std::size_t yasTestFlag = yas::file | yas::binary | yas::no_header;
             std::filesystem::path test_file(process.fatDeviceCPP + "_nds/SkyjoDS/test.dat");
@@ -272,6 +249,7 @@ void GameParty::PauseMenuGUIlogic()
         } 
     }
 }
+#endif // SKYJO_CLIENT_ONLY
 void GameParty::GamePartyLogicRender()
 {
     NEA_2DViewInit();
@@ -385,6 +363,7 @@ void GameParty::GamePartyLogicRender()
 
 }
 
+#ifndef SKYJO_CLIENT_ONLY // pause menu buttons, final scores, end-of-game menu
 void GameParty::InitPauseMenuGUIbutton()
 {
     for (int i = 0; i < 12; ++i)
@@ -395,8 +374,6 @@ void GameParty::InitPauseMenuGUIbutton()
                                                 57 + 128, 60 + 32);
     this->QuitButton =  NEA_GUIButtonCreate( 57, 103,
                                             57 + 128, 103 + 32);
-    this->SaveButton =  NEA_GUIButtonCreate( 57, 146,
-                                            57 + 128, 146 + 32);
     NEA_GUIButtonConfig(this->ContinueButton,
          this->ContinueButtonMat, NEA_White, 31,
         this->ContinueButtonPressedMat, NEA_White, 31);
@@ -405,9 +382,17 @@ void GameParty::InitPauseMenuGUIbutton()
          this->QuitButtonMat, NEA_White, 31,
         this->QuitButtonPressedMat, NEA_White, 31);
 
-    NEA_GUIButtonConfig(this->SaveButton,
-        this->SaveButtonMat, NEA_White, 31,
-        this->SaveButtonPressedMat, NEA_White, 31);
+    // Suspending a networked game would write a save the other consoles know
+    // nothing about and could never rejoin, so the host only gets Save in single
+    // player. DestroyPauseMenuMain clears a null handle happily.
+    if (this->partyType == PartyType::OnePlayerCPU)
+    {
+        this->SaveButton = NEA_GUIButtonCreate( 57, 146,
+                                                57 + 128, 146 + 32);
+        NEA_GUIButtonConfig(this->SaveButton,
+            this->SaveButtonMat, NEA_White, 31,
+            this->SaveButtonPressedMat, NEA_White, 31);
+    }
 }
 
 void GameParty::ComputeFinalScores()
@@ -455,6 +440,7 @@ void GameParty::InitEndGameMenu()
     
 
 }
+#endif // SKYJO_CLIENT_ONLY
 
 void GameParty::DestroyEndGameMenu()
 {
@@ -462,6 +448,7 @@ void GameParty::DestroyEndGameMenu()
     DeleteGUI(this->ExitButton);
 }
 
+#ifndef SKYJO_CLIENT_ONLY // end-of-game menu logic
 void GameParty::EndGameGUIlogic()
 {
     if (GuiClicked(this->ReplayButton))
@@ -492,11 +479,10 @@ void GameParty::EndGameGUIlogic()
         this->Quited = true;
         if (this->partyType == PartyType::LocalMultiplayer)
         {
-            // Leaving the host drops the link; clients see ClientLostHost and
-            // return to the menu on their own.
-            NetLink::Shutdown();
-            process.classstates = ClassStates::Init;
-            process.menustates = MenusStates::MainMenu;
+            // Same as the pause-menu quit: the clients are told rather than left
+            // to notice.
+            NetLink::HostAnnounceBye(NetByeReason::HostEndedGame);
+            process.ReturnToMainMenu();
         }
         else
         {
@@ -505,6 +491,7 @@ void GameParty::EndGameGUIlogic()
         }
     }
 }
+#endif // SKYJO_CLIENT_ONLY
 
 void GameParty::UnloadGamePartyAssets()
 {
@@ -640,10 +627,11 @@ void GameParty::LoadGamePartyAssets()
         std::terminate();
     }
 
-    // The menu hands over faded to white. Lift it: this is the game's longest
-    // load (47 files) and the progress bar is the point of showing one.
-    // BuildGamePartyScene() ends with the same call once the scene is up.
-    setBrightness(3, 0);
+    // Stay on the white the menu handed over. There is nothing to look at
+    // while 47 files load, and white is what hides the backdrop turning
+    // magenta as each background palette lands. BuildGamePartyScene() lifts it
+    // once the scene is actually built.
+    setBrightness(3, 16);
 
     // Every file below is only *queued*. A worker thread reads them in the
     // background while AsyncAssetBatch::Wait() keeps the main loop (and
@@ -680,6 +668,11 @@ void GameParty::LoadGamePartyAssets()
     NEA_Hw2DBGSetVisible(this->hexBGbot, false);
     assets.QueueBGGRF(this->hexBGbot, "mainmenu/hex_background_png.grf", 0);
 
+#ifndef SKYJO_CLIENT_ONLY
+    // Pause, quit and end-of-game menu buttons. A client never opens any of
+    // those overlays -- the host runs them and the client only renders the
+    // leaderboard text -- so the Download Play guest neither creates these
+    // materials nor carries their textures.
     this->ContinueButtonMat = NEA_MaterialCreate();
     this->ContinueButtonPal = NEA_PaletteCreate();
     this->ContinueButtonPressedMat = NEA_MaterialCreate();
@@ -770,6 +763,7 @@ void GameParty::LoadGamePartyAssets()
     assets.QueueTexGRF( this->SaveButtonPressedMat,
                   this->SaveButtonPressedPal,
                   "mainmenu/btns/SaveButtonPressed_png.grf");
+#endif // SKYJO_CLIENT_ONLY
     for (int n = static_cast<int>(CardType::Negative_2); n <= static_cast<int>(CardType::Positive_12); ++n)
     {
         CardType i = static_cast<CardType>(n);
@@ -822,6 +816,7 @@ void GameParty::LoadGamePartyAssets()
     // Show the backgrounds only once their tiles and maps are actually in
     // VRAM -- a visible layer over an unwritten tile block is a screenful of
     // garbage.
+    ClearBackdropToWhite();
     NEA_Hw2DBGSetVisible(this->hexBGtop, true);
     NEA_Hw2DBGSetVisible(this->hexBGbot, true);
 
@@ -842,6 +837,7 @@ void GameParty::LoadGamePartyAssets()
     Music::Play(Music::GamePartyTrack);
 }
 
+#ifndef SKYJO_CLIENT_ONLY // deck setup, controllers, and the two host party entry points
 void GameParty::InitCardStack()
 {
     this->cardPreStack.clear();
@@ -923,7 +919,7 @@ void GameParty::InitGamePartySituation(int number_arg, CPULevel cpu_arg, PartyTy
     this->drawSource = std::nullopt;
     this->heldCard = std::nullopt;
     this->topScreenViewPlayerIdx = (number_arg > 1) ? 1 : 0;
-    this->prevKeydown = 0;
+    this->keydown = 0; // never carry a key edge into a new party
     this->initialRevealCount.fill(0);
 
     //this->secondCount{0};
@@ -990,7 +986,7 @@ void GameParty::InitGamePartyHost(int playerCnt, int humanCount, CPULevel cpu_ar
     this->drawSource = std::nullopt;
     this->heldCard = std::nullopt;
     this->topScreenViewPlayerIdx = (playerCnt > 1) ? 1 : 0;
-    this->prevKeydown = 0;
+    this->keydown = 0; // never carry a key edge into a new party
     this->initialRevealCount.fill(0);
 
     this->LoadGamePartyAssets();
@@ -1024,6 +1020,7 @@ void GameParty::InitGamePartyHost(int playerCnt, int humanCount, CPULevel cpu_ar
 
     this->BuildGamePartyScene();
 }
+#endif // SKYJO_CLIENT_ONLY
 
 // Creates the in-game sprites/OBJs, controllers and turns the screen on. Shared by
 // a fresh party (InitGamePartySituation) and a resumed one (ResumeGamePartySituation);
@@ -1098,11 +1095,17 @@ void GameParty::BuildGamePartyScene()
     NEA_SpriteSetPriority(this->heldCardSprite, 0);
     NEA_SpriteVisible(this->heldCardSprite, false);
 
+#ifndef SKYJO_CLIENT_ONLY
+    // A client is driven entirely by snapshots from the host, so it has no
+    // use for controllers -- and this is the only edge that would otherwise
+    // drag the CPU strategies into the Download Play child.
     this->BuildControllers(this->playerCount);
+#endif // SKYJO_CLIENT_ONLY
 
     setBrightness(3, 0);
 }
 
+#ifndef SKYJO_CLIENT_ONLY // resume a suspended party (needs FAT)
 // Restore a previously suspended party from save_party.dat and rebuild the scene so
 // play continues exactly where it left off. Mirrors InitGamePartySituation but loads
 // state instead of generating it.
@@ -1115,8 +1118,7 @@ void GameParty::ResumeGamePartySituation()
     // under -fno-exceptions a failed yas open calls std::abort().
     if (!std::filesystem::exists(save_party, ec))
     {
-        process.classstates = ClassStates::Init;
-        process.menustates = MenusStates::MainMenu;
+        process.ReturnToMainMenu();
         return;
     }
 
@@ -1133,7 +1135,7 @@ void GameParty::ResumeGamePartySituation()
     this->Restarted = false;
     this->pausephase = PausePhase::PauseMenuMain;
     this->finalScores.clear();
-    this->prevKeydown = 0;
+    this->keydown = 0; // never carry a key edge into a new party
     this->localPlayerIndex = 0; // resumed games are always single-player
     this->humanSeatCount = 1;   // single-player: only seat 0 is human
     this->netLastSnapshot.clear();
@@ -1152,6 +1154,7 @@ void GameParty::ResumeGamePartySituation()
                               sharedAssetsGameParty.GetCardMat(*this->heldCard));
     }
 }
+#endif // SKYJO_CLIENT_ONLY
 
 void GameParty::RefreshMyHandSprite(int slot)
 {
@@ -1262,6 +1265,7 @@ void GameParty::HandleTopScreenCycling()
     if (this->keydown & KEY_R) cycle(+1);
 }
 
+#ifndef SKYJO_CLIENT_ONLY // the rules engine: reveal, turn, scoring, column clears, SFX
 void GameParty::TickInitialReveal()
 {
     for (int p = 0; p < this->playerCount; ++p)
@@ -1550,6 +1554,7 @@ void GameParty::ResolveColumnClears(int playerIdx)
         this->RefreshDiscardSprite();
     }
 }
+#endif // SKYJO_CLIENT_ONLY
 
 bool GameParty::HandFullyRevealed(int playerIdx) const
 {
@@ -1558,6 +1563,7 @@ bool GameParty::HandFullyRevealed(int playerIdx) const
     return true;
 }
 
+#ifndef SKYJO_CLIENT_ONLY // turn advance, the host render loop, snapshot build/broadcast
 void GameParty::AdvanceToNextPlayer()
 {
     // Reserved for future use; turn advancement is currently inlined in TickTurn.
@@ -1589,8 +1595,7 @@ void GameParty::RenderGameParty()
 
             if (this->Quited)
             {
-                process.classstates = ClassStates::Init;
-                process.menustates = MenusStates::MainMenu;
+                process.ReturnToMainMenu();
                 break;
             }
             // Replay: CallInitializationOnePlayerParty already set the process
@@ -1611,27 +1616,24 @@ void GameParty::RenderGameParty()
         scanKeys();
         this->keydown = keysDown();
         touchRead(&this->touchData);
-        // The host can't pause: the pause overlay suspends GamePartyLogic while
-        // clients keep running off snapshots, so a host pause would freeze the
-        // networked game. Only single-player arms the pause menu; the host gets a
-        // clean KEY_SELECT quit instead (parity with the client), which drops the
-        // clients via HostLostClient/ClientLostHost.
+        // START opens the pause menu in every mode, multiplayer included. It
+        // used to be single-player only, with the multiplayer host quitting on a
+        // bare KEY_SELECT instead -- but that quit had no confirmation and fired
+        // on a single keysDown() sample, so one stray press ended the game for
+        // everyone. Quitting now goes through the pause menu's Yes/No like it
+        // does in single player.
+        //
+        // A host pause does suspend GamePartyLogic while clients keep rendering
+        // their last snapshot, so they simply see the board hold still for as
+        // long as the overlay is open. That is a better failure than losing the
+        // party to a misread button.
         if (!overlay)
         {
-            if (this->partyType == PartyType::OnePlayerCPU && (this->keydown & KEY_START))
+            if (this->keydown & KEY_START)
             {
                 this->pausephase = PausePhase::PauseMenuMain;
                 this->StartMenu = true;
                 this->InitPauseMenuGUIbutton();
-            }
-            else if (this->partyType == PartyType::LocalMultiplayer &&
-                     (this->keydown & KEY_SELECT))
-            {
-                this->UnloadGamePartyAssets();
-                NetLink::Shutdown();
-                process.classstates = ClassStates::Init;
-                process.menustates = MenusStates::MainMenu;
-                break;
             }
             else
             {
@@ -1645,10 +1647,10 @@ void GameParty::RenderGameParty()
         {
             if (NetLink::HostLostClient())
             {
+                // No goodbye here: this is the host reacting to a link that has
+                // already gone, and there is nobody left listening on it.
                 this->UnloadGamePartyAssets();
-                NetLink::Shutdown();
-                process.classstates = ClassStates::Init;
-                process.menustates = MenusStates::MainMenu;
+                process.ReturnToMainMenu();
                 break;
             }
             NetLink::HostDriveCycle();
@@ -1708,6 +1710,13 @@ GameNetSnapshot GameParty::BuildSnapshot() const
     return s;
 }
 
+// How long the host may go without sending anything before it repeats itself.
+// Clients time out on silence, and a board that nobody has touched for a moment
+// -- a player thinking, or this host sitting on its pause overlay -- is a
+// perfectly ordinary reason to have nothing new to say. Half a second of an
+// unchanged snapshot is nothing next to the link's per-frame budget.
+static constexpr int kNetKeepAliveFrames = 30;
+
 void GameParty::NetHostBroadcastIfChanged()
 {
     GameNetSnapshot snap = this->BuildSnapshot();
@@ -1716,11 +1725,25 @@ void GameParty::NetHostBroadcastIfChanged()
     const uint8_t* bytes = reinterpret_cast<const uint8_t*>(sb.data.get());
     bool changed = this->netLastSnapshot.size() != sb.size ||
         std::memcmp(this->netLastSnapshot.data(), bytes, sb.size) != 0;
-    if (!changed) return;
 
-    this->netLastSnapshot.assign(bytes, bytes + sb.size);
+    if (!changed)
+    {
+        // Nothing new, but say so anyway now and then: it is the only thing that
+        // lets a client tell "the host has nothing to report" from "the host is
+        // gone". Resending the snapshot rather than inventing a ping keeps this
+        // to one message type the client already knows how to handle.
+        if (++this->netKeepAliveFrames < kNetKeepAliveFrames)
+            return;
+    }
+    else
+    {
+        this->netLastSnapshot.assign(bytes, bytes + sb.size);
+    }
+
+    this->netKeepAliveFrames = 0;
     NetLink::HostBroadcastSnapshot(snap);
 }
+#endif // SKYJO_CLIENT_ONLY
 
 void GameParty::ApplySnapshot(const GameNetSnapshot& s)
 {
@@ -1878,7 +1901,7 @@ void GameParty::InitGamePartyClient(int seatIndex, int playerCnt,
     this->heldCard = std::nullopt;
     // Show some opponent (never our own hand) on the top screen by default.
     this->topScreenViewPlayerIdx = (seatIndex == 0) ? (playerCnt > 1 ? 1 : 0) : 0;
-    this->prevKeydown = 0;
+    this->keydown = 0; // never carry a key edge into a new party
     this->initialRevealCount.fill(0);
     this->netLastSnapshot.clear();
 
@@ -1898,9 +1921,47 @@ void GameParty::InitGamePartyClient(int seatIndex, int playerCnt,
     this->BuildGamePartyScene();
 }
 
-void GameParty::RenderGamePartyClient()
+// Everything a client does on its way out of a party whose host has gone. Both
+// exits do exactly this, so it lives in one place: the caller then only has to
+// decide what to say about it.
+void GameParty::ClientTeardown()
+{
+    this->UnloadGamePartyAssets();
+#ifndef SKYJO_CLIENT_ONLY
+    process.ReturnToMainMenu();
+#else
+    // The Download Play guest has no menu to go back to; its main() re-joins
+    // instead, so it only needs the link dropped.
+    NetLink::Shutdown();
+#endif
+}
+
+// How long a client waits without hearing anything at all before it decides the
+// host is gone. The host repeats itself every kNetKeepAliveFrames, so six missed
+// repeats is a link that has genuinely stopped carrying traffic rather than a
+// quiet moment or a handful of dropped frames.
+//
+// This is the half of the problem ClientLostHost() cannot see: it watches the
+// association, which a host that quits drops on purpose, but a host that is
+// powered off mid-turn, carried out of range or hung leaves the association
+// standing and simply stops answering. Without this the client sits on its last
+// snapshot forever.
+//
+// It only starts counting once a first snapshot has arrived. Both consoles load
+// the party's assets before their render loops begin, and the host reads its 32
+// card textures off the cartridge while the guest has them in RAM -- so the
+// guest routinely sits in this loop for seconds before the host has anything to
+// send. Counting from frame one would throw every guest out at the start of
+// every game. Until then, association is the only signal, which is what
+// ClientLostHost() already watches.
+static constexpr int kHostSilentFrames = 180;
+
+GameParty::ClientExit GameParty::RenderGamePartyClient()
 {
     HumanTouchController input; // stateless; produces the local player's intents
+
+    this->netSilentFrames = 0;
+    this->netSilentArmed = false;
 
     while (1)
     {
@@ -1916,31 +1977,43 @@ void GameParty::RenderGamePartyClient()
 
         NetLink::ClientDriveCycle();
 
-        // Lost the host? Bail cleanly back to the main menu.
-        if (NetLink::ClientLostHost())
+        // Host gone? Bail cleanly back to the main menu.
+        //
+        // The goodbye is checked first because it is the same departure said out
+        // loud: a host that quits on purpose sends it and then drops the link,
+        // so waiting for ClientLostHost() to notice would spend half a second
+        // showing a table that has already ended. Either way out is the same
+        // exit, so the message the player is shown does not change.
+        if (NetLink::ClientHostSaidBye() || NetLink::ClientLostHost())
         {
-            this->UnloadGamePartyAssets();
-            NetLink::Shutdown();
-            process.classstates = ClassStates::Init;
-            process.menustates = MenusStates::MainMenu;
-            break;
+            this->ClientTeardown();
+            return ClientExit::HostLeft;
         }
 
-        // Quit: leave the game and disconnect.
-        if (this->keydown & KEY_SELECT)
-        {
-            this->UnloadGamePartyAssets();
-            NetLink::Shutdown();
-            process.classstates = ClassStates::Init;
-            process.menustates = MenusStates::MainMenu;
-            break;
-        }
+        // No quit button here on purpose. A client leaving drops the link, which
+        // the host reads as HostLostClient and ends the party for everyone, so a
+        // single misread keysDown() sample used to be able to kill the game from
+        // any console in the room. The host ends a networked game through its
+        // pause menu; a client that wants out powers off, and the others see the
+        // ordinary lost-link path.
 
         // Pull the freshest host state.
         GameNetSnapshot snap;
         bool got = false;
         while (NetLink::ClientPollSnapshot(snap)) got = true; // drain to newest
-        if (got) this->ApplySnapshot(snap);
+        if (got)
+        {
+            this->netSilentFrames = 0;
+            this->netSilentArmed = true;
+            this->ApplySnapshot(snap);
+        }
+        else if (this->netSilentArmed &&
+                 ++this->netSilentFrames >= kHostSilentFrames)
+        {
+            // Still associated, but nothing has arrived for three seconds.
+            this->ClientTeardown();
+            return ClientExit::HostSilent;
+        }
 
         // Top-screen opponent cycling stays local to the client.
         this->HandleTopScreenCycling();

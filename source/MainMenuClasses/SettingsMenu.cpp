@@ -1,4 +1,5 @@
 #include "SettingsMenu.hpp"
+#include "../NeaDelete.hpp"
 #include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "../Process.hpp"
@@ -112,35 +113,35 @@ void SettingsMenu::LoadAssetsSettingsMenu()
 void SettingsMenu::UnloadAssetsSettingsMenu()
 {
 
-    NEA_GUIDeleteObject(this->BackButton);
-    NEA_GUIDeleteObject(this->EmptyMusicButton);
-    NEA_GUIDeleteObject(this->EmptySoundButton);
-    NEA_GUIDeleteObject(this->NextPlayerMusicButton);
-    NEA_GUIDeleteObject(this->NextPlayerSoundButton);
+    DeleteGUI(this->BackButton);
+    DeleteGUI(this->EmptyMusicButton);
+    DeleteGUI(this->EmptySoundButton);
+    DeleteGUI(this->NextPlayerMusicButton);
+    DeleteGUI(this->NextPlayerSoundButton);
 
-    NEA_GUIDeleteObject(this->PrevPlayerMusicButton);
-    NEA_GUIDeleteObject(this->PrevPlayerSoundButton);
+    DeleteGUI(this->PrevPlayerMusicButton);
+    DeleteGUI(this->PrevPlayerSoundButton);
 
-    NEA_MaterialDelete(this->BackMat[0]);
-    NEA_MaterialDelete(this->BackMat[1]);
+    DeleteMaterial(this->BackMat[0]);
+    DeleteMaterial(this->BackMat[1]);
 
-    NEA_PaletteDelete(this->BackPal[0]);
-    NEA_PaletteDelete(this->BackPal[1]);
+    DeletePalette(this->BackPal[0]);
+    DeletePalette(this->BackPal[1]);
 
-    NEA_MaterialDelete(this->EmptyMat);
-    NEA_PaletteDelete(this->EmptyPal);
+    DeleteMaterial(this->EmptyMat);
+    DeletePalette(this->EmptyPal);
 
-    NEA_MaterialDelete(this->NextPlayerMat[0]);
-    NEA_PaletteDelete(this->NextPlayerPal[0]);
+    DeleteMaterial(this->NextPlayerMat[0]);
+    DeletePalette(this->NextPlayerPal[0]);
 
-    NEA_MaterialDelete(this->NextPlayerMat[1]);
-    NEA_PaletteDelete(this->NextPlayerPal[1]);
+    DeleteMaterial(this->NextPlayerMat[1]);
+    DeletePalette(this->NextPlayerPal[1]);
 
-    NEA_MaterialDelete(this->PrevPlayerMat[0]);
-    NEA_PaletteDelete(this->PrevPlayerPal[0]);
+    DeleteMaterial(this->PrevPlayerMat[0]);
+    DeletePalette(this->PrevPlayerPal[0]);
 
-    NEA_MaterialDelete(this->PrevPlayerMat[1]);
-    NEA_PaletteDelete(this->PrevPlayerPal[1]);
+    DeleteMaterial(this->PrevPlayerMat[1]);
+    DeletePalette(this->PrevPlayerPal[1]);
 }
 
 std::optional<MainMenuStates> SettingsMenu::ProcessLogicSettingsMenu()

@@ -1,3 +1,2 @@
 # 8 bpp, tiles, export map, SSB layout, set magenta as transparent
--gt -gB8 -mR8 -v -mLs -gTff00ff
-
+-gt -gB8 -mR8 -v -mLs -gTff00ff -Zl

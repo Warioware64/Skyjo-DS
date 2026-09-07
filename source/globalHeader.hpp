@@ -1,12 +1,16 @@
 #pragma once
 
+// <iostream> and <print> are deliberately NOT here. Only main.cpp's terminate
+// handler uses them, and they drag in ~360 KB of libstdc++ locale and
+// std::format machinery -- half the ARM9 binary. Including <iostream> anywhere
+// also plants a std::ios_base::Init in every translation unit, so it cannot be
+// left to --gc-sections. The Download Play child has its own main() and never
+// pays for either.
 #include <cstdint>
 #include <stdio.h>
 #include <stdlib.h>
-#include <iostream>
 #include <utility>
 #include <array>
-#include <print>
 #include <filesystem>
 #include <vector>
 #include <string>

@@ -1,4 +1,5 @@
 #include "MainSelectionMenu.hpp"
+#include "../NeaDelete.hpp"
 #include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "MainMenuStates.hpp"
@@ -89,28 +90,33 @@ void MainSelectionMenu::LoadAssetsMainSelectionMenu()
 
 void MainSelectionMenu::UnloadAssetsMainSelectionMenu()
 {
-    NEA_GUIDeleteObject(this->PlayButton);
-    NEA_GUIDeleteObject(this->SettingsButton);
+    DeleteGUI(this->PlayButton);
+    DeleteGUI(this->SettingsButton);
 
-    NEA_MaterialDelete(this->PlayMat[0]);
-    NEA_MaterialDelete(this->PlayMat[1]);
-    NEA_MaterialDelete(this->SettingsMat[0]);
-    NEA_MaterialDelete(this->SettingsMat[1]);
+    DeleteMaterial(this->PlayMat[0]);
+    DeleteMaterial(this->PlayMat[1]);
+    DeleteMaterial(this->SettingsMat[0]);
+    DeleteMaterial(this->SettingsMat[1]);
 
-    NEA_PaletteDelete(this->PlayPal[0]);
-    NEA_PaletteDelete(this->PlayPal[1]);
-    NEA_PaletteDelete(this->SettingsPal[0]);
-    NEA_PaletteDelete(this->SettingsPal[1]);
+    DeletePalette(this->PlayPal[0]);
+    DeletePalette(this->PlayPal[1]);
+    DeletePalette(this->SettingsPal[0]);
+    DeletePalette(this->SettingsPal[1]);
 
-    if (resumableParty)
-    {
-        NEA_GUIDeleteObject(this->ResumeButton);
+    // Unconditionally, even though Resume is only *created* when a saved party
+    // exists. `resumableParty` is not this screen's to trust: MainMenu rewrites
+    // it from the filesystem on every entry, and finishing a game deletes the
+    // save file, so the flag can differ between the load that built these and
+    // the unload that tears them down. Branching on it here would either leak
+    // the Resume button or free handles that were never made. The deleters
+    // ignore a null handle and clear the one they take, so asking for all four
+    // every time is both correct and shorter.
+    DeleteGUI(this->ResumeButton);
 
-        NEA_MaterialDelete(this->ResumeMat[0]);
-        NEA_MaterialDelete(this->ResumeMat[1]);
-        NEA_PaletteDelete(this->ResumePal[0]);
-        NEA_PaletteDelete(this->ResumePal[1]);
-    }
+    DeleteMaterial(this->ResumeMat[0]);
+    DeleteMaterial(this->ResumeMat[1]);
+    DeletePalette(this->ResumePal[0]);
+    DeletePalette(this->ResumePal[1]);
 }
 
 std::optional<MainMenuStates> MainSelectionMenu::ProcessLogicMainSelectionMenu()

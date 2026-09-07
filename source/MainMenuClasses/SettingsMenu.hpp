@@ -15,41 +15,41 @@ class SettingsMenu
 
 
 
-        NEA_Material *BackMat[2];
-        NEA_Palette *BackPal[2];
+        NEA_Material * BackMat[2] = {};
+        NEA_Palette * BackPal[2] = {};
 
-        NEA_GUIObj *BackButton;
+        NEA_GUIObj * BackButton = nullptr;
 
-        NEA_Material *StartMat[2];
-        NEA_Palette *StartPal[2];
+        NEA_Material * StartMat[2] = {};
+        NEA_Palette * StartPal[2] = {};
 
-        NEA_GUIObj *StartButton;        
+        NEA_GUIObj * StartButton = nullptr;        
 
 
-        NEA_Material *EmptyMat;
-        NEA_Palette *EmptyPal;
+        NEA_Material * EmptyMat = nullptr;
+        NEA_Palette * EmptyPal = nullptr;
 
-        NEA_GUIObj *EmptyMusicButton;
-        NEA_GUIObj *EmptySoundButton;
+        NEA_GUIObj * EmptyMusicButton = nullptr;
+        NEA_GUIObj * EmptySoundButton = nullptr;
 
-        NEA_Material *NextPlayerMat[2];
-        NEA_Palette *NextPlayerPal[2];
+        NEA_Material * NextPlayerMat[2] = {};
+        NEA_Palette * NextPlayerPal[2] = {};
 
         int incrementMusic = 0;
         int incrementSound = 0;
 
-        NEA_GUIObj *NextPlayerMusicButton;
-        NEA_GUIObj *NextPlayerSoundButton;
+        NEA_GUIObj * NextPlayerMusicButton = nullptr;
+        NEA_GUIObj * NextPlayerSoundButton = nullptr;
 
 
-        NEA_Material *PrevPlayerMat[2];
-        NEA_Palette *PrevPlayerPal[2];
+        NEA_Material * PrevPlayerMat[2] = {};
+        NEA_Palette * PrevPlayerPal[2] = {};
 
         int decrementMusic = 0;
         int decrementSound = 0;
 
-        NEA_GUIObj *PrevPlayerMusicButton;
-        NEA_GUIObj *PrevPlayerSoundButton;
+        NEA_GUIObj * PrevPlayerMusicButton = nullptr;
+        NEA_GUIObj * PrevPlayerSoundButton = nullptr;
 
     public:
         GameSettings oldSettings;

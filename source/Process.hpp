@@ -45,6 +45,15 @@ class Process
         void CallInitializationMultiplayerClient(int seat, int player_count,
                                                  const std::vector<std::string>& names);
 
+        // Drop any wireless link and go back to the title screen.
+        //
+        // Entry into a party has always been centralised in the four
+        // CallInitialization* above; the exit was not, and the same two
+        // assignments plus a NetLink::Shutdown() were open-coded at five places
+        // in GameParty. That is how an exit ends up forgetting one of the three,
+        // which is the whole class of bug this removes.
+        void ReturnToMainMenu();
+
         void ProcessInit();
         void ProcessGame();
 

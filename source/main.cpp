@@ -5,7 +5,10 @@
 
 #include <vector>
 #include <exception>
+#include <iostream>
+#include <print>
 #include "ErrorHandler.hpp"
+#include "Net/NetLink.hpp"
 #include "Process.hpp"
 #include "DebugPrint.hpp"
 
@@ -43,6 +46,12 @@ int main(int argc, char **argv)
             if (keys & KEY_START)
             {
                 std::println("Prepare to exit");
+
+                // Give the hardware back on the way out. Nothing else in this
+                // handler unwinds anything, and leaving the radio engaged is
+                // the one piece of state that outlives the program.
+                NetLink::PowerDown();
+
                 for (int i = 0; i < 5; i++)
                 {
                     std::print(".");

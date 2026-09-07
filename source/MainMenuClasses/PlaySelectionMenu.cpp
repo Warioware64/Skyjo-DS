@@ -1,4 +1,5 @@
 #include "PlaySelectionMenu.hpp"
+#include "../NeaDelete.hpp"
 #include "../AssetLoader.hpp"
 #include "../GuiClickSound.hpp"
 #include "MainMenuStates.hpp"
@@ -73,27 +74,27 @@ void PlaySelectionMenu::LoadAssetsPlaySelectionMenu()
 
 void PlaySelectionMenu::UnloadAssetsPlaySelectionMenu()
 {
-    NEA_GUIDeleteObject(this->OnePlayerButton);
-    NEA_GUIDeleteObject(this->MultiplayerButton);
-    NEA_GUIDeleteObject(this->BackButton);
+    DeleteGUI(this->OnePlayerButton);
+    DeleteGUI(this->MultiplayerButton);
+    DeleteGUI(this->BackButton);
 
-    NEA_MaterialDelete(this->OnePlayerMat[0]);
-    NEA_MaterialDelete(this->OnePlayerMat[1]);
+    DeleteMaterial(this->OnePlayerMat[0]);
+    DeleteMaterial(this->OnePlayerMat[1]);
 
-    NEA_MaterialDelete(this->MultiplayerMat[0]);
-    NEA_MaterialDelete(this->MultiplayerMat[1]);
+    DeleteMaterial(this->MultiplayerMat[0]);
+    DeleteMaterial(this->MultiplayerMat[1]);
 
-    NEA_MaterialDelete(this->BackMat[0]);
-    NEA_MaterialDelete(this->BackMat[1]);
+    DeleteMaterial(this->BackMat[0]);
+    DeleteMaterial(this->BackMat[1]);
 
-    NEA_PaletteDelete(this->OnePlayerPal[0]);
-    NEA_PaletteDelete(this->OnePlayerPal[1]);
+    DeletePalette(this->OnePlayerPal[0]);
+    DeletePalette(this->OnePlayerPal[1]);
 
-    NEA_PaletteDelete(this->MultiplayerPal[0]);
-    NEA_PaletteDelete(this->MultiplayerPal[1]);
+    DeletePalette(this->MultiplayerPal[0]);
+    DeletePalette(this->MultiplayerPal[1]);
 
-    NEA_PaletteDelete(this->BackPal[0]);
-    NEA_PaletteDelete(this->BackPal[1]);
+    DeletePalette(this->BackPal[0]);
+    DeletePalette(this->BackPal[1]);
 }
 
 std::optional<MainMenuStates> PlaySelectionMenu::ProcessLogicPlaySelectionMenu()
